@@ -88,7 +88,7 @@ export default function Login(){
             });
     
             const { isAuthenticated, isAdmin, first_name, last_name, user_email } = response.data;
-            console.log("\n hi there ----- ", isAuthenticated, isAdmin, first_name, last_name);
+            // console.log("\n hi there ----- ", isAuthenticated, isAdmin, first_name, last_name);
             return { isAuthenticated, isAdmin, firstName: first_name, lastName: last_name, username: user_email };
         } catch (error) {
             console.error('Error during authentication:', error);

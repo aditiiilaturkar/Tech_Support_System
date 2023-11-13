@@ -16,6 +16,7 @@ export interface TicketData {
   created_on: string;
   status: string;
   description: string;
+  assign_to: string;
 }
 export interface TicketState {
   alltickets: TicketData[];
@@ -41,7 +42,7 @@ const authSlice = createSlice({
       state.isAdmin = action.payload.isAdmin;
       state.firstName = action.payload.firstName;
       state.lastName = action.payload.lastName;
-      // console.log("\n hello  ----- ", action.payload.password, action.payload.username, action.payload.isAdmin);
+      console.log("\n hello  ----- ", action.payload.password, action.payload.username, action.payload.isAdmin);
     },
     loginSuccess: (state) => {
       state.isAuthenticated = true;
@@ -60,7 +61,7 @@ const ticketSlice = createSlice({
   initialState: initialTicketState,
   reducers: {
     setAllTickets: (state, action: PayloadAction<TicketData[]>) => {
-      console.log("\n i reached here --- ", action.payload);
+      // console.log("\n i reached here --- ", action.payload);
       state.alltickets = action.payload;
     },
 

@@ -20,7 +20,7 @@ interface TicketData {
   created_on: string;
   status: string;
   description:string;
-  
+  assign_to: string;
 }
 
 
@@ -36,7 +36,7 @@ export default function Dashboard() {
 
   const { alltickets } = useSelector((state: any) => state.tickets);
 
-  console.log("\n alltickets -- ", alltickets);
+  console.log("\n username -- ", username);
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -62,55 +62,25 @@ export default function Dashboard() {
           priority: ticket.priority,
           created_on: ticket.created_on,
           description: ticket.description,
-          status: ticket.resolved_by.Valid ? 'resolved' : 'open',
+          status: ticket.is_resolved ? 'resolved' : 'open',
+          assign_to: ticket.assign_to,
+          image: ticket.image_data ? createImageUrl(ticket.image_data) : null,
         }));
 
         dispatch(setAllTickets(formattedTickets));
-        console.log("\n formattedTickets --- ", formattedTickets);
         setLoading(false);
-        
       } catch (error) {
         console.error('Error fetching tickets:', error);
       }
     };
 
     fetchTickets();
-  }, [dispatch, loading]); 
+  }, [dispatch, loading]);
 
-  // const handleResolve = async () => {
-  //   // console.log("\n hi resolve me ", resolveTicketId);
-  //   try {
-  //     const response = await fetch(`http://localhost:8080/resolve_ticket/${resolveTicketId}`, {
-  //       method: 'PUT',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         id: resolveTicketId,
-  //         resolved_by: username, 
-  //       }),
-  //     });
-  
-  //     const data = await response.json();
-  
-  //     if (data.success) {
-  //       console.log('Ticket resolved successfully!');
-  //       const updatedTickets = alltickets.map((ticket: TicketData) => {
-  //         if (ticket.id === resolveTicketId) {
-  //           return { ...ticket, status: "resolved" };
-  //         }
-  //         return ticket;
-  //       });
-  //       dispatch(setAllTickets(updatedTickets));
-  //       setShowPopup(false);
-
-  //     }else {
-  //       console.error('Failed to resolve ticket:', data.message);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error resolving ticket:', error);
-  //   }
-  // }
+  const createImageUrl = (imageData: any) => {
+    const blob = new Blob([imageData], { type: 'image/png' }); // Adjust the type based on your image format
+    return URL.createObjectURL(blob);
+  };
   const handleResolve = async () => {
     try {
       const response = await fetch(`http://localhost:8080/resolve_ticket/${resolveTicketId}`, {
@@ -119,15 +89,14 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: resolveTicketId,
-          resolved_by: username,
+          id: resolveTicketId
         }),
       });
   
       const data = await response.json();
   
       if (data.success) {
-        console.log('Ticket resolved successfully!');
+        // console.log('Ticket resolved successfully!');
         const updatedTickets = alltickets.map((ticket: TicketData) => {
           if (ticket.id === resolveTicketId) {
             return { ...ticket, status: 'resolved' };
@@ -145,18 +114,12 @@ export default function Dashboard() {
   };
   
   const resolvedTicket = alltickets.find((ticket: TicketData) => ticket.id === resolveTicketId);
+  console.log("\n resolvedTicket -- ", resolvedTicket);
   const handleCreateTicket = () => {
 
       navigate('/createTicket');
   }
 
-  if(loading){
-    return (
-      <div>
-        <p>Loadinggggggg</p>
-      </div>
-    )
-  }
 
   if(isAdmin) {
     return (
@@ -164,22 +127,24 @@ export default function Dashboard() {
         
         <div>
           {alltickets.map((ticket: TicketData) => {
-            console.log("\n ticket ----", ticket);
-            return (
-              <Ticket
-              key={ticket.id}
-              id={ticket.id}
-              name={ticket.name}
-              department={ticket.department}
-              description={ticket.description}
-              created_on={ticket.created_on}
-              status={ticket.status}
-              priority={ticket.priority}
-              handleClick={handleClick}
-              isAdmin={isAdmin}
-            />
-
-            )
+              if(ticket.assign_to === username) {
+              return (
+                <Ticket
+                key={ticket.id}
+                id={ticket.id}
+                name={ticket.name}
+                department={ticket.department}
+                description={ticket.description}
+                created_on={ticket.created_on}
+                status={ticket.status}
+                priority={ticket.priority}
+                handleClick={handleClick}
+                isAdmin={isAdmin}
+              />
+  
+              )
+  
+            }
           })}
         </div>
         {showPopup && (
@@ -212,13 +177,18 @@ export default function Dashboard() {
                       </tr>
                       <tr>
                         <td className="font-semibold py-1 text-xl">Status:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.status}</td>
+                        <td className="py-1 text-xl">{resolvedTicket.status} {resolvedTicket.assign_to}</td>
                       </tr>
                     </tbody>
                   </table>
+                      {resolvedTicket.image && (
+                            <img
+                            src={`data:image/png;base64,${resolvedTicket.image}`}
+                            alt={`Ticket ${resolvedTicket.id} Image`}
+                          />
+                          )}
                 </div>
-              )}
-              {/* <p className="mb-4 text-xl">{popupMessage}</p> */}
+                  )}
               <div className="mt-auto flex flex-col items-end">
                 <div className="flex justify-end">
                   <button className="bg-red-500 text-white px-4 py-2 mr-2 rounded-full hover:bg-red-600 transition-colors" onClick={handleClosePopup}>Cancel</button>

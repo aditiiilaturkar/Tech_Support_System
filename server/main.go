@@ -2,12 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -54,7 +55,8 @@ type CreateTicketRequest struct {
 	CreatedBy   string `json:"created_by"`
 	IsResolved  bool   `json:"is_resolved"`
 	AssignTo    string `json:"assign_to"`
-	ImageData   []byte `json:"image_data"`
+	// ImageData   []byte `json:"image_data"`
+	ImageData string `json:"image_data"`
 }
 
 type CreateTicketResponse struct {
@@ -94,6 +96,7 @@ type TicketsResponse struct {
 	IsResolved  bool   `json:"is_resolved"`
 	AssignTo    string `json:"assign_to"`
 	ImageData   []byte `json:"image_data"`
+	// ImageData string `json:"image_data"`
 }
 
 type ResolveTicketRequest struct {
@@ -103,6 +106,11 @@ type ResolveTicketRequest struct {
 type ResolveTicketResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+type AdminResponse struct {
+	UserEmail string `json:"user_email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 func LoginHandler(c echo.Context) error {
@@ -153,47 +161,75 @@ func LoginHandler(c echo.Context) error {
 
 func CreateTicketHandler(c echo.Context) error {
 	var createTicketRequest CreateTicketRequest
-	err := c.Bind(&createTicketRequest)
-	if err != nil {
+	if err := c.Bind(&createTicketRequest); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 	}
 
-	query := `
-		INSERT INTO tickets (
-			department,
-			priority,
-			description,
-			created_on,
-			created_by,
-			is_resolved,
-			assign_to,
-			image_data
-		) VALUES (
-			$1,
-			$2,
-			$3,
-			$4,
-			$5,
-			$6,
-			$7,
-			$8
-		)
-	`
-
-	createTicketRequest.CreatedOn = time.Now().Format("2006-01-02 15:04:05")
-
-	_, err = db.Exec(query, createTicketRequest.Department, createTicketRequest.Priority, createTicketRequest.Description,
-		createTicketRequest.CreatedOn, createTicketRequest.CreatedBy, createTicketRequest.IsResolved, createTicketRequest.AssignTo, createTicketRequest.ImageData)
-
+	// Decode base64-encoded image data
+	imageData, err := base64.StdEncoding.DecodeString(createTicketRequest.ImageData)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to create ticket!"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid image data"})
 	}
 
-	return c.JSON(http.StatusOK, CreateTicketResponse{
-		Success: true,
-		Message: "Ticket created successfully!",
+	// Insert the ticket with image data into the database
+	query := `
+        INSERT INTO tickets (department, priority, description, created_on, created_by, image_data, is_resolved, assign_to)
+        VALUES ($1, $2, $3, $4, $5, $6, false, $7)
+    `
+	_, err = db.Exec(query,
+		createTicketRequest.Department,
+		createTicketRequest.Priority,
+		createTicketRequest.Description,
+		createTicketRequest.CreatedOn,
+		createTicketRequest.CreatedBy,
+		pq.Array(imageData),
+		createTicketRequest.AssignTo,
+	)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create ticket"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Ticket created successfully!",
 	})
 }
+
+// func GetTicketsHandler(c echo.Context) error {
+// 	query := "SELECT * FROM tickets"
+// 	rows, err := db.Query(query)
+// 	if err != nil {
+// 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+// 	}
+// 	defer rows.Close()
+
+// 	var tickets []TicketsResponse
+// 	for rows.Next() {
+// 		var ticket TicketsResponse
+// 		err := rows.Scan(
+// 			&ticket.Id,
+// 			&ticket.Department,
+// 			&ticket.Priority,
+// 			&ticket.Description,
+// 			&ticket.CreatedOn,
+// 			&ticket.CreatedBy,
+// 			&ticket.ImageData,
+// 			&ticket.IsResolved,
+// 			&ticket.AssignTo,
+// 		)
+
+// 		if err != nil {
+// 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch tickets!"})
+// 		}
+// 		if len(ticket.ImageData) > 0 {
+// 			ticket.ImageData = base64.StdEncoding.EncodeToString(ticket.ImageData)
+// 		}
+
+// 		tickets = append(tickets, ticket)
+// 	}
+
+//		return c.JSON(http.StatusOK, tickets)
+//	}
 
 func GetTicketsHandler(c echo.Context) error {
 	query := "SELECT * FROM tickets"
@@ -221,12 +257,12 @@ func GetTicketsHandler(c echo.Context) error {
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch tickets!"})
 		}
+
 		tickets = append(tickets, ticket)
 	}
 
 	return c.JSON(http.StatusOK, tickets)
 }
-
 func ResolveTicketHandler(c echo.Context) error {
 	var resolveTicketRequest ResolveTicketRequest
 	if err := c.Bind(&resolveTicketRequest); err != nil {
@@ -300,6 +336,32 @@ func isTicketExists(ticketID int) (bool, error) {
 	}
 	return count > 0, nil
 }
+
+func GetAdminsHandler(c echo.Context) error {
+	query := "SELECT user_email, first_name, last_name FROM users WHERE is_admin = true"
+	rows, err := db.Query(query)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+	defer rows.Close()
+
+	var admins []AdminResponse
+	for rows.Next() {
+		var admin AdminResponse
+		err := rows.Scan(
+			&admin.UserEmail,
+			&admin.FirstName,
+			&admin.LastName,
+		)
+
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch admins!"})
+		}
+		admins = append(admins, admin)
+	}
+
+	return c.JSON(http.StatusOK, admins)
+}
 func main() {
 	e := echo.New()
 	e.Use(middleware.CORS())
@@ -316,6 +378,7 @@ func main() {
 
 	e.POST("/login", LoginHandler)
 	e.GET("/get_tickets", GetTicketsHandler)
+	e.GET("/get_admins_data", GetAdminsHandler)
 	e.POST("/create_ticket", CreateTicketHandler)
 	e.PUT("/resolve_ticket/:id", ResolveTicketHandler)
 	e.POST("/create-comment", CreateCommentHandler)

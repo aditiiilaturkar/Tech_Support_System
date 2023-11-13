@@ -1,5 +1,5 @@
 import { useSelector, useDispatch } from 'react-redux'
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 
@@ -9,8 +9,26 @@ interface FormData {
     department: string;
     created_on: string;
     image: File | null;
+    assign_to: string;
 }
 
+interface AdminOption {
+  user_email: string;
+  first_name: string;
+  last_name: string;
+}
+const adminOptions = [
+  {
+    username: 'admin@gmail.com',
+    firstName: 'admin',
+    lastName: 'Admin lastname'
+  },
+  {
+    username: 'admin2@gmail.com',
+    firstName: 'admin2',
+    lastName: 'Admin2 lastname'
+  }
+]
 export default function CreateTicket() {
    const { username } = useSelector((state: any) => state.auth);
    const navigate = useNavigate();
@@ -20,8 +38,26 @@ export default function CreateTicket() {
         department: '',
         created_on: '',
         image: null,
+        assign_to: ''
       });
+      const [adminOptions, setAdminOptions] = useState<AdminOption[]>([]);
       
+      useEffect(() => {
+        const fetchAdmins = async () => {
+          try {
+            const response = await fetch('http://localhost:8080/get_admins_data');
+            const data = await response.json();
+    
+            if (data) {
+              setAdminOptions(data);
+            }
+          } catch (error) {
+            console.error('Error fetching admin data:', error);
+          }
+        };
+    
+        fetchAdmins();
+      }, []); 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         // console.log("\n Aditiiiiii --- ", name, value);
@@ -50,6 +86,7 @@ export default function CreateTicket() {
             created_on: formData.created_on,
             created_by: username,
             image: formData.image,
+            assign_to: formData.assign_to
           };
       
           console.log('apiData --- ', apiData);
@@ -143,6 +180,23 @@ export default function CreateTicket() {
              
               />
             </div>
+            <div className="mb-4">
+            <label className="block font-bold mb-2">Assign To</label>
+            <select
+              name="assign_to"
+              value={formData.assign_to}
+              onChange={handleInputChange}
+              className="border border-gray-300 p-2 w-full rounded"
+              required
+            >
+              <option value="">Select Admin</option>
+              {adminOptions.map((admin, index) => (
+                <option key={index} value={admin.user_email}>
+                  {admin.first_name} {admin.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
             <button
               type="submit"
               className="bg-blue-500 text-white px-4 py-2 rounded"
