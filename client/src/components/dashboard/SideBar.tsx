@@ -1,13 +1,23 @@
 import { useState } from "react";
+import { logout } from "../../actions";
 import {logo, Search, User, Setting, control}  from '../../images';
+import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 
 const SideBar = () => {
   const [open, setOpen] = useState(true);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();  
+
   const Menus = [
     { title: "Accounts", src: "User", gap: false, img: User },
     { title: "Dashboard", src: "Chart_fill", img:User },
     { title: "Search", src: "Search" , img: Search},
-    { title: "Setting", src: "Setting" , img: Setting},
+    { title: "Logout", src: "Setting" , img: Setting, onclick: () => {
+      dispatch(logout());
+      localStorage.removeItem('loginState');
+      navigate('/');
+    }},
   ];
 
   return (
@@ -46,8 +56,9 @@ const SideBar = () => {
               ${Menu.gap ? "mt-9" : "mt-2"} ${
                 index === 0 && "bg-light-white"
               } `}
+              onClick={Menu.onclick}
             >
-              <img src={Menu.img} />
+              <img src={Menu.img}/>
               <span className={`${!open && "hidden"} origin-left duration-200`}>
                 {Menu.title}
               </span>

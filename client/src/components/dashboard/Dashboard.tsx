@@ -1,5 +1,5 @@
 
-import React , { Suspense, useState } from 'react';
+import React , { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux'
 import {
   BrowserRouter,
@@ -8,89 +8,37 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { Ticket } from '../admin/Ticket';
+import { setAllTickets } from '../../actions';
 import SideBar from './SideBar';
+import { all } from 'axios';
 
 interface TicketData {
   id: number;
   name: string;
-  dept: string;
+  department: string;
   priority: string;
-  time: string;
+  created_on: string;
   status: string;
+  description:string;
+  
 }
 
-const tempTickets = [
-    {
-        id: 1,
-        name: "admin@gmail.com",
-        dept: "abc",
-        priority: "high",
-        time: "10/20/23" ,
-        status: "open"
-    },
-    {
-        id: 2,
-        name: "ABC2",
-        dept: "abc",
-        priority: "low",
-        time: "10/20/23" ,
-        status: "open"
-    },
-    {
-        id: 3,
-        name: "admin@gmail.com",
-        dept: "abc",
-        priority: "high",
-        time: "10/20/23" ,
-        status: "closed"
-    },
-    {
-        id: 4,
-        name: "ABC3",
-        dept: "abc",
-        priority: "low",
-        time: "10/20/23" ,
-        status: "closed"
-    },
-    {
-        id: 4,
-        name: "admin@gmail.com",
-        dept: "abc",
-        priority: "high",
-        time: "10/20/23" ,
-        status: "closed"
-    },
-    {
-        id: 5,
-        name: "ABC3",
-        dept: "abc",
-        priority: "medium",
-        time: "10/20/23" ,
-        status: "closed"
-    },
-    {
-        id: 6,
-        name: "ABC4",
-        dept: "abc",
-        priority: "high",
-        time: "10/20/23" ,
-        status: "closed"
-    }
-
-]
 
 const popupMessage = "Do you want to resolve this ticket?";
 
 export default function Dashboard() {
-  const [tickets, setTickets] = useState<TicketData[]>([...tempTickets]);
+  const [loading, setLoading] = useState(true);
   const [showPopup, setShowPopup] = useState(false);
   const [resolveTicketId, setResolveTicketId] = useState<number | null>(null);
 
-  const { isAuthenticated = false } = useSelector((state: any) => state.auth);
   const { isAdmin } = useSelector((state:any)=> state.auth);
-  const { username, password } = useSelector((state: any) => state.auth);
-  const navigate = useNavigate();
+  const { username } = useSelector((state: any) => state.auth);
 
+  const { alltickets } = useSelector((state: any) => state.tickets);
+
+  console.log("\n alltickets -- ", alltickets);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
 
 
   const handleClick = (id: number) => {
@@ -101,43 +49,138 @@ export default function Dashboard() {
   const handleClosePopup = () => {
     setShowPopup(false);
   }
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/get_tickets');
+        const data = await response.json();
 
-  const handleResolve = () => {
-    // console.log("\n hi resolve me ", resolveTicketId);
-    // TODO: Perform resolve API call here
-    // After successful resolve, update ticket status and close the popup
-    const updatedTickets = tickets.map(ticket => {
-      if (ticket.id === resolveTicketId) {
-        return { ...ticket, status: "resolved" };
+        const formattedTickets = data.map((ticket: any) => ({
+          id: ticket.id,
+          name: ticket.created_by,
+          department: ticket.department,
+          priority: ticket.priority,
+          created_on: ticket.created_on,
+          description: ticket.description,
+          status: ticket.resolved_by.Valid ? 'resolved' : 'open',
+        }));
+
+        dispatch(setAllTickets(formattedTickets));
+        console.log("\n formattedTickets --- ", formattedTickets);
+        setLoading(false);
+        
+      } catch (error) {
+        console.error('Error fetching tickets:', error);
       }
-      return ticket;
-    });
-    setTickets(updatedTickets);
-    setShowPopup(false);
+    };
+
+    fetchTickets();
+  }, [dispatch, loading]); 
+
+  // const handleResolve = async () => {
+  //   // console.log("\n hi resolve me ", resolveTicketId);
+  //   try {
+  //     const response = await fetch(`http://localhost:8080/resolve_ticket/${resolveTicketId}`, {
+  //       method: 'PUT',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         id: resolveTicketId,
+  //         resolved_by: username, 
+  //       }),
+  //     });
+  
+  //     const data = await response.json();
+  
+  //     if (data.success) {
+  //       console.log('Ticket resolved successfully!');
+  //       const updatedTickets = alltickets.map((ticket: TicketData) => {
+  //         if (ticket.id === resolveTicketId) {
+  //           return { ...ticket, status: "resolved" };
+  //         }
+  //         return ticket;
+  //       });
+  //       dispatch(setAllTickets(updatedTickets));
+  //       setShowPopup(false);
+
+  //     }else {
+  //       console.error('Failed to resolve ticket:', data.message);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error resolving ticket:', error);
+  //   }
+  // }
+  const handleResolve = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/resolve_ticket/${resolveTicketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: resolveTicketId,
+          resolved_by: username,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (data.success) {
+        console.log('Ticket resolved successfully!');
+        const updatedTickets = alltickets.map((ticket: TicketData) => {
+          if (ticket.id === resolveTicketId) {
+            return { ...ticket, status: 'resolved' };
+          }
+          return ticket;
+        });
+        dispatch(setAllTickets(updatedTickets));
+        setShowPopup(false);
+      } else {
+        console.error('Failed to resolve ticket:', data.message);
+      }
+    } catch (error) {
+      console.error('Error resolving ticket:', error);
+    }
+  };
+  
+  const resolvedTicket = alltickets.find((ticket: TicketData) => ticket.id === resolveTicketId);
+  const handleCreateTicket = () => {
+
+      navigate('/createTicket');
   }
 
-  const resolvedTicket = tickets.find(ticket => ticket.id === resolveTicketId);
-  const handleCreateTicket = () => {
-      navigate('/createTicket');
+  if(loading){
+    return (
+      <div>
+        <p>Loadinggggggg</p>
+      </div>
+    )
   }
 
   if(isAdmin) {
     return (
       <div className="overflow-y-auto h-screen w-full max-w-screen mt-4">
+        
         <div>
-          {tickets.map(ticket => (
-            <Ticket
+          {alltickets.map((ticket: TicketData) => {
+            console.log("\n ticket ----", ticket);
+            return (
+              <Ticket
               key={ticket.id}
               id={ticket.id}
               name={ticket.name}
-              dept={ticket.dept}
-              time={ticket.time}
+              department={ticket.department}
+              description={ticket.description}
+              created_on={ticket.created_on}
               status={ticket.status}
               priority={ticket.priority}
               handleClick={handleClick}
               isAdmin={isAdmin}
             />
-          ))}
+
+            )
+          })}
         </div>
         {showPopup && (
           <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-60 ">
@@ -157,7 +200,7 @@ export default function Dashboard() {
                       </tr>
                       <tr>
                         <td className="font-semibold py-1 text-xl">Department:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.dept}</td>
+                        <td className="py-1 text-xl">{resolvedTicket.department}</td>
                       </tr>
                       <tr>
                         <td className="font-semibold py-1 text-xl">Priority:</td>
@@ -165,7 +208,7 @@ export default function Dashboard() {
                       </tr>
                       <tr>
                         <td className="font-semibold py-1 text-xl">Time:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.time}</td>
+                        <td className="py-1 text-xl">{resolvedTicket.created_on}</td>
                       </tr>
                       <tr>
                         <td className="font-semibold py-1 text-xl">Status:</td>
@@ -188,24 +231,25 @@ export default function Dashboard() {
       </div>
     );  
   }else{
-    // console.log("\n im in else", tempTickets, username);
+
     return (
-      <div className="p-4 relative"> 
+      <div className="overflow-y-auto h-screen w-full max-w-screen mt-4"> 
 
         <button onClick={handleCreateTicket}  className="absolute top-5 right-12 mb-30 bg-blue-500 text-white px-4 py-2 rounded">
           Create Ticket
         </button>
         <h1 className="text-2xl font-bold mb-4  text-center ">Your Tickets</h1>
-        {tempTickets.map(ticket => {
+        <div className="overflow-y-auto h-screen w-full max-w-screen mt-4">
+        {alltickets.map((ticket: TicketData) => {
           if (ticket.name === username) {
-            console.log("\n at least i reach here --- ", ticket.name);
             return (
               <div key={ticket.id} className="mb-4">
                 <Ticket
                   id={ticket.id}
                   name={ticket.name}
-                  dept={ticket.dept}
-                  time={ticket.time}
+                  department={ticket.department}
+                  created_on={ticket.created_on}
+                  description={ticket.description}
                   status={ticket.status}
                   priority={ticket.priority}
                   handleClick={() => {}}
@@ -216,6 +260,7 @@ export default function Dashboard() {
           }
           return null;
         })}
+        </div>
       </div>
     );
         

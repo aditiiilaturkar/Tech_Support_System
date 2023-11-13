@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { loginFields } from "../fields";
 import LoginInput from './LoginInput';
 import { useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux';
 import { setCredentials, loginSuccess } from '../../actions';
 // import Input from "./LoginInput";
+
+import axios from 'axios';
 
 const fields=loginFields;
 
@@ -13,60 +15,86 @@ let fieldsState: Record<string, string> = {};
 fields.forEach(field => fieldsState[field.id] = '');
 
 
+
 export default function Login(){
     const [loginState,setLoginState] = useState(fieldsState);
     const { isAuthenticated = false } = useSelector((state: any) => state.auth);
     const { isAdmin } = useSelector((state:any)=> state.auth);
-    const { username, password } = useSelector((state: any) => state.auth);
-    const dispatch = useDispatch()  
+    const { username, password, firstName, lastName } = useSelector((state: any) => state.auth);
+    const dispatch = useDispatch();
     const navigate = useNavigate();
 
     useEffect(() => {   
     if (username && password) {
           setLoginState({ username: username, password: password, isAdmin: isAdmin });
         }
-    }, [username, password, isAdmin]);
+    }, [isAuthenticated, username, password, isAdmin]);
 
     useEffect(() => {
-        const storedLoginState = JSON.parse(localStorage.getItem('loginState') || '{}');
-        if (storedLoginState.username && storedLoginState.password) {
-          setLoginState(storedLoginState);
-          
-          console.log("\n i am logged in -> ", storedLoginState.username);
-          dispatch(setCredentials({ username: storedLoginState.username, password: storedLoginState.password, isAdmin: storedLoginState.isAdmin }));
-          dispatch(loginSuccess());
-          navigate('/dashboardLayout');  
-        }
-      }, []);
+        const storedLoginState = localStorage.getItem('loginState');
     
+        if (storedLoginState) {
+          const storedDetails = JSON.parse(storedLoginState);
+    
+          setLoginState({
+            username: storedDetails.username,
+            password: '', 
+            isAdmin: storedDetails.isAdmin,
+          });
+    
+    
+          dispatch(setCredentials({
+            username: storedDetails.username,
+            password: '',
+            isAdmin: storedDetails.isAdmin,
+            firstName: storedDetails.firstName,
+            lastName: storedDetails.lastName,
+          }));
+          dispatch(loginSuccess());
+    
+          
+          navigate('/dashboardLayout');
+        }
+      }, []); 
+
     const handleChange=(e: any)=>{
         const { id, value } = e.target;
         const updatedLoginState = { ...loginState, [id]: value };
-        // localStorage.setItem('loginState', JSON.stringify(updatedLoginState));
+
         setLoginState(updatedLoginState);
     }
 
     const handleSubmit= async(e: any)=>{
         e.preventDefault();
-        const {isAuthenticated, isAdmin} = await authenticateUser();
-       
+        const {isAuthenticated, isAdmin, firstName, lastName, username } = await authenticateUser();
         if (isAuthenticated) {
-            localStorage.setItem('loginState', JSON.stringify({...loginState, isAdmin}));
-            dispatch(setCredentials({ username: loginState.username, password: loginState.password, isAdmin}));
+              localStorage.setItem('loginState', JSON.stringify({
+                username: username,
+                isAdmin: isAdmin,
+                firstName: firstName,
+                lastName: lastName
+              }));
+    
+            dispatch(setCredentials({ username: loginState.username, password: loginState.password, isAdmin, firstName, lastName}));
             dispatch(loginSuccess());
-            // console.log("\n i reached in auth success");
             navigate('/dashboardLayout');
         }
     }
-
-    //Handle Login API Integration here
-    const authenticateUser = (): { isAuthenticated: boolean; isAdmin: boolean } => {
-        console.log("hello  here ", loginState);
-        return {
-            isAuthenticated : true,
-            isAdmin: false
-        };
-    }
+    const authenticateUser = async () => {
+        try {
+            const response = await axios.post('http://localhost:8080/login', {
+                user_email: loginState.username,
+                password: loginState.password,
+            });
+    
+            const { isAuthenticated, isAdmin, first_name, last_name, user_email } = response.data;
+            console.log("\n hi there ----- ", isAuthenticated, isAdmin, first_name, last_name);
+            return { isAuthenticated, isAdmin, firstName: first_name, lastName: last_name, username: user_email };
+        } catch (error) {
+            console.error('Error during authentication:', error);
+            return { isAuthenticated: false, isAdmin: false, firstName: "", lastName: "" };
+        }
+   };
     
 
     return(

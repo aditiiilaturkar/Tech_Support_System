@@ -22,11 +22,13 @@ function App() {
 
   useEffect(() => {
     const storedLoginState = JSON.parse(localStorage.getItem('loginState') || '{}');
+    console.log("\n hello ji --- ", storedLoginState);
     if (storedLoginState.username && storedLoginState.password) {
 
       
-      console.log("\n i am logged in -> ", storedLoginState.username);
-      dispatch(setCredentials({ username: storedLoginState.username, password: storedLoginState.password, isAdmin: storedLoginState.isAdmin }));
+      // console.log("\n i am logged in -> ", storedLoginState.username);
+      dispatch(setCredentials({ username: storedLoginState.username, password: storedLoginState.password, isAdmin: storedLoginState.isAdmin,
+      firstName: storedLoginState.firstName, lastName:storedLoginState.lastName }));
       dispatch(loginSuccess());
       // navigate('/dashboardLayout');  
     }

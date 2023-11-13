@@ -14,14 +14,16 @@ import { IT_support } from "../../images";
 
   export function Ticket({
     name, 
-    dept,
-    time,
+    department,
+    created_on,
+    description,
     status,
     priority,
     handleClick,
     id,
     isAdmin
   }: TicketProps) {
+    console.log("\n am i called?" , department);
     return (
       <Card className=" flex-row h-full ml-10 mr-10 border border-gray-300 shadow-lg p-8 mb-4">
         <CardBody className="w-full flex flex-col">
@@ -58,16 +60,10 @@ import { IT_support } from "../../images";
           ) : null}
             </div>
             <Typography color="gray" className="mb-2 mt-2 font-normal">
-            et its own business model disruption is only part
-            of the story et its own business model disruption is only part
-            of the story et its own business model disruption is only part
-            of the story et its own business model disruption is only part
-            of the story et its own business model disruption is only part
-            of the story et its own business model disruption is only part
-            of the story
+              {description}
           </Typography>
           <Typography className=" text-slate-800 text-sm ml-auto mt-2">
-            {time}
+            {created_on}
           </Typography>
 
         </CardBody>
@@ -78,10 +74,11 @@ import { IT_support } from "../../images";
 
 interface TicketProps {
     name: string;
-    dept: string;
-    time: string;
+    department: string;
+    created_on: string;
     status: string;
     priority: string;
+    description: string;
     id: number,
     handleClick: (id:number) => void;
     isAdmin?: boolean

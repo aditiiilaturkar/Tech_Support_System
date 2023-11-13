@@ -173,3 +173,79 @@ func main() {
 // // 		panic(err)
 // // 	}
 // // }
+
+// ===== old
+
+// func CreateTicketHandlerOld(c echo.Context) error {
+// 	var createTicketRequest CreateTicketRequest
+// 	err := c.Bind(&createTicketRequest)
+// 	if err != nil {
+// 		// fmt.Println("\n hiiii %v ", err)
+// 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+// 	}
+// 	query := `
+// 		INSERT INTO tickets (
+// 			department,
+// 			priority,
+// 			description,
+// 			created_on,
+// 			created_by,
+// 			resolved_by,
+// 			image_data
+// 		) VALUES (
+// 			$1,
+// 			$2,
+// 			$3,
+// 			$4,
+// 			$5,
+// 			$6,
+// 			$7
+// 		)
+// 	`
+// 	createTicketRequest.CreatedOn = time.Now().Format("2006-01-02 15:04:05")
+// 	// fmt.Println("createTicketRequest.Priority:", createTicketRequest.Priority)
+// 	_, err = db.Exec(query, createTicketRequest.Department, createTicketRequest.Priority, createTicketRequest.Description,
+// 		createTicketRequest.CreatedOn, createTicketRequest.CreatedBy, createTicketRequest.ResolvedBy, createTicketRequest.ImageData)
+
+// 	if err != nil {
+// 		// fmt.Println("Error:", err)
+// 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to create ticket!"})
+// 	}
+// 	// fmt.Printf("Received Request: %+v\n", createTicketRequest)
+
+// 	return c.JSON(http.StatusOK, CreateTicketResponse{
+// 		Success: true,
+// 		Message: "Ticket created successfully!",
+// 	})
+// }
+
+// func GetTicketsHandler(c echo.Context) error {
+// 	query := "SELECT * FROM tickets"
+// 	rows, err := db.Query(query)
+// 	if err != nil {
+// 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+// 	}
+// 	defer rows.Close()
+// 	var tickets []TicketsResponse
+// 	for rows.Next() {
+// 		var ticket TicketsResponse
+// 		err := rows.Scan(
+// 			&ticket.Id,
+// 			&ticket.Department,
+// 			&ticket.Priority,
+// 			&ticket.Description,
+// 			&ticket.CreatedOn,
+// 			&ticket.CreatedBy,
+// 			&ticket.ResolvedBy,
+// 			&ticket.ImageData,
+// 		)
+
+// 		if err != nil {
+// 			// fmt.Println("\n error prints %v ", err)
+// 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch tickets!"})
+// 		}
+// 		tickets = append(tickets, ticket)
+
+// 		}
+// 		return c.JSON(http.StatusOK, tickets)
+// 	}

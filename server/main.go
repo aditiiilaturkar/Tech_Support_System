@@ -47,13 +47,14 @@ type LoginRequest struct {
 }
 
 type CreateTicketRequest struct {
-	Department  string         `json:"department"`
-	Priority    string         `json:"priority"`
-	Description string         `json:"description"`
-	CreatedOn   string         `json:"created_on"`
-	CreatedBy   string         `json:"created_by"`
-	ResolvedBy  sql.NullString `json:"resolved_by"`
-	ImageData   []byte         `json:"image_data"`
+	Department  string `json:"department"`
+	Priority    string `json:"priority"`
+	Description string `json:"description"`
+	CreatedOn   string `json:"created_on"`
+	CreatedBy   string `json:"created_by"`
+	IsResolved  bool   `json:"is_resolved"`
+	AssignTo    string `json:"assign_to"`
+	ImageData   []byte `json:"image_data"`
 }
 
 type CreateTicketResponse struct {
@@ -73,20 +74,30 @@ type UserDetails struct {
 	LastName  string `json:"last_name"`
 	IsAdmin   bool   `json:"is_admin"`
 }
-
-type TicketsResponse struct {
-	Id          int            `json:"id"`
-	Department  string         `json:"department"`
-	Priority    string         `json:"priority"`
-	Description string         `json:"description"`
-	CreatedOn   string         `json:"created_on"`
-	CreatedBy   string         `json:"created_by"`
-	ResolvedBy  sql.NullString `json:"resolved_by"`
-	ImageData   []byte         `json:"image_data"`
+type CreateCommentRequest struct {
+	Id        int    `json:"id"`
+	Comment   string `json:"comment"`
+	CommentBy string `json:"comment_by"`
 }
+
+type CreateCommentResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+type TicketsResponse struct {
+	Id          int    `json:"id"`
+	Department  string `json:"department"`
+	Priority    string `json:"priority"`
+	Description string `json:"description"`
+	CreatedOn   string `json:"created_on"`
+	CreatedBy   string `json:"created_by"`
+	IsResolved  bool   `json:"is_resolved"`
+	AssignTo    string `json:"assign_to"`
+	ImageData   []byte `json:"image_data"`
+}
+
 type ResolveTicketRequest struct {
-	Id         int    `json:"id"`
-	ResolvedBy string `json:"resolved_by"`
+	Id int `json:"id"`
 }
 
 type ResolveTicketResponse struct {
@@ -140,6 +151,50 @@ func LoginHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
+func CreateTicketHandler(c echo.Context) error {
+	var createTicketRequest CreateTicketRequest
+	err := c.Bind(&createTicketRequest)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+	}
+
+	query := `
+		INSERT INTO tickets (
+			department,
+			priority,
+			description,
+			created_on,
+			created_by,
+			is_resolved,
+			assign_to,
+			image_data
+		) VALUES (
+			$1,
+			$2,
+			$3,
+			$4,
+			$5,
+			$6,
+			$7,
+			$8
+		)
+	`
+
+	createTicketRequest.CreatedOn = time.Now().Format("2006-01-02 15:04:05")
+
+	_, err = db.Exec(query, createTicketRequest.Department, createTicketRequest.Priority, createTicketRequest.Description,
+		createTicketRequest.CreatedOn, createTicketRequest.CreatedBy, createTicketRequest.IsResolved, createTicketRequest.AssignTo, createTicketRequest.ImageData)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to create ticket!"})
+	}
+
+	return c.JSON(http.StatusOK, CreateTicketResponse{
+		Success: true,
+		Message: "Ticket created successfully!",
+	})
+}
+
 func GetTicketsHandler(c echo.Context) error {
 	query := "SELECT * FROM tickets"
 	rows, err := db.Query(query)
@@ -147,6 +202,7 @@ func GetTicketsHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 	}
 	defer rows.Close()
+
 	var tickets []TicketsResponse
 	for rows.Next() {
 		var ticket TicketsResponse
@@ -157,97 +213,93 @@ func GetTicketsHandler(c echo.Context) error {
 			&ticket.Description,
 			&ticket.CreatedOn,
 			&ticket.CreatedBy,
-			&ticket.ResolvedBy,
 			&ticket.ImageData,
+			&ticket.IsResolved,
+			&ticket.AssignTo,
 		)
 
 		if err != nil {
-			// fmt.Println("\n error prints %v ", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch tickets!"})
 		}
 		tickets = append(tickets, ticket)
-
 	}
+
 	return c.JSON(http.StatusOK, tickets)
-}
-
-func CreateTicketHandler(c echo.Context) error {
-	var createTicketRequest CreateTicketRequest
-	err := c.Bind(&createTicketRequest)
-	if err != nil {
-		// fmt.Println("\n hiiii %v ", err)
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
-	}
-	query := `
-		INSERT INTO tickets (
-			department,
-			priority,
-			description,
-			created_on,
-			created_by,
-			resolved_by,
-			image_data
-		) VALUES (
-			$1,
-			$2,
-			$3,
-			$4,
-			$5,
-			$6,
-			$7
-		)
-	`
-	createTicketRequest.CreatedOn = time.Now().Format("2006-01-02 15:04:05")
-
-	_, err = db.Exec(query, createTicketRequest.Department, createTicketRequest.Priority, createTicketRequest.Description,
-		createTicketRequest.CreatedOn, createTicketRequest.CreatedBy, createTicketRequest.ResolvedBy, createTicketRequest.ImageData)
-
-	if err != nil {
-		// fmt.Println("Error:", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to create ticket!"})
-	}
-	// fmt.Printf("Received Request: %+v\n", createTicketRequest)
-
-	return c.JSON(http.StatusOK, CreateTicketResponse{
-		Success: true,
-		Message: "Ticket created successfully!",
-	})
 }
 
 func ResolveTicketHandler(c echo.Context) error {
 	var resolveTicketRequest ResolveTicketRequest
-	err := c.Bind(&resolveTicketRequest)
-	if err != nil {
-		// fmt.Println("\n hiiii %v ", err)
+	if err := c.Bind(&resolveTicketRequest); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 	}
+
 	if resolveTicketRequest.Id <= 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
 	}
+
 	result, err := db.Exec(`
 		UPDATE tickets
-		SET resolved_by = $1
-		WHERE id = $2
-	`, resolveTicketRequest.ResolvedBy, resolveTicketRequest.Id)
+		SET is_resolved = true
+		WHERE id = $1
+	`, resolveTicketRequest.Id)
 
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Server error"})
-
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
 	}
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Unable to resolve the ticket."})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to resolve the ticket."})
 	}
+
 	if rowsAffected > 0 {
 		return c.JSON(http.StatusOK, ResolveTicketResponse{
 			Success: true,
 			Message: "Ticket resolved successfully!",
 		})
 	} else {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Ticket not found."})
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Ticket not found."})
 	}
 }
+func CreateCommentHandler(c echo.Context) error {
+	var createCommentRequest CreateCommentRequest
+	if err := c.Bind(&createCommentRequest); err != nil {
+		fmt.Println("Error binding request:", err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+	}
 
+	exists, err := isTicketExists(createCommentRequest.Id)
+	if err != nil {
+		fmt.Println("Error checking if ticket exists:", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+	if !exists {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Ticket not found"})
+	}
+	_, err = db.Exec(`
+		INSERT INTO comments (comment, Id, comment_by)
+		VALUES ($1, $2, $3)
+	`, createCommentRequest.Comment, createCommentRequest.Id, createCommentRequest.CommentBy)
+
+	if err != nil {
+		fmt.Println("Error inserting comment:", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to create comment"})
+	}
+
+	return c.JSON(http.StatusOK, CreateCommentResponse{
+		Success: true,
+		Message: "Comment created successfully",
+	})
+}
+
+func isTicketExists(ticketID int) (bool, error) {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM tickets WHERE id = $1", ticketID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
 func main() {
 	e := echo.New()
 	e.Use(middleware.CORS())
@@ -265,6 +317,8 @@ func main() {
 	e.POST("/login", LoginHandler)
 	e.GET("/get_tickets", GetTicketsHandler)
 	e.POST("/create_ticket", CreateTicketHandler)
-	e.PUT("/resolve_ticket", ResolveTicketHandler)
+	e.PUT("/resolve_ticket/:id", ResolveTicketHandler)
+	e.POST("/create-comment", CreateCommentHandler)
+
 	e.Logger.Fatal(e.Start(":8080"))
 }

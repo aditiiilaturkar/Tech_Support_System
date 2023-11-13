@@ -1,35 +1,30 @@
-import {
-    Card,
-    CardHeader,
-    CardBody,
-    Typography,
-    Button,
-  } from "@material-tailwind/react";
+import { useSelector, useDispatch } from 'react-redux'
 import React, { useState, ChangeEvent, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 
 interface FormData {
     priority: string;
     description: string;
     department: string;
-    time: string;
+    created_on: string;
     image: File | null;
 }
 
-export default function CreateTicket({
-
-}) {
+export default function CreateTicket() {
+   const { username } = useSelector((state: any) => state.auth);
+   const navigate = useNavigate();
     const [formData, setFormData] = useState<FormData>({
-        priority: '',
+        priority: 'high',
         description: '',
         department: '',
-        time: '',
+        created_on: '',
         image: null,
       });
       
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        console.log("\n Aditiiiiii --- ", name, value);
+        // console.log("\n Aditiiiiii --- ", name, value);
         setFormData({
           ...formData,
           [name]: value,
@@ -44,12 +39,42 @@ export default function CreateTicket({
         });
     };
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        // Here you can handle submitting the ticket data, including the image upload
-        // You can use formData.priority, formData.description, etc. to access the form fields
-        console.log('Form submitted:', formData);
-    };
+    
+        try {
+          const apiData = {
+            department: formData.department,
+            priority: formData.priority,
+            description: formData.description,
+            created_on: formData.created_on,
+            created_by: username,
+            image: formData.image,
+          };
+      
+          console.log('apiData --- ', apiData);
+      
+          const response = await fetch('http://localhost:8080/create_ticket', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(apiData),
+          });
+      
+      
+          const data = await response.json();
+    
+          if (data.success) {
+            // console.log('Ticket created successfully!');
+            navigate('/dashboardLayout');
+          } else {
+            console.error('Failed to create ticket:', data.message);
+          }
+        } catch (error) {
+          console.error('Error creating ticket:', error);
+        }
+      };
     
     
     return (
@@ -98,11 +123,11 @@ export default function CreateTicket({
               </select>
             </div>
             <div className="mb-4">
-              <label className="block font-bold mb-2">Time</label>
+              <label className="block font-bold mb-2">created_on</label>
               <input
                 type="datetime-local"
-                name="time"
-                value={formData.time}
+                name="created_on"
+                value={formData.created_on}
                 onChange={handleInputChange}
                 className="border border-gray-300 p-2 w-full rounded"
                 required
@@ -115,7 +140,7 @@ export default function CreateTicket({
                 accept="image/*"
                 onChange={handleFileChange}
                 className="border border-gray-300 p-2 w-full rounded"
-                required
+             
               />
             </div>
             <button
