@@ -28,7 +28,7 @@ Final Demonstration: Showcase the dashboard's functionalities in a demonstration
  Clone the repository.
  Navigate to the frontend directory.
  Run npm install to install dependencies.
- Start the frontend server using `npm start`.
+ Start the frontend server using `npm start`
 
 ### Backend Setup:
 Clone the repository.
