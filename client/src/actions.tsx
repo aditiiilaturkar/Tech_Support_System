@@ -42,7 +42,7 @@ const authSlice = createSlice({
       state.isAdmin = action.payload.isAdmin;
       state.firstName = action.payload.firstName;
       state.lastName = action.payload.lastName;
-      console.log("\n hello  ----- ", action.payload.password, action.payload.username, action.payload.isAdmin);
+      // console.log("\n hello  ----- ",  action.payload.username, action.payload.isAdmin);
     },
     loginSuccess: (state) => {
       state.isAuthenticated = true;

@@ -1,6 +1,7 @@
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { loginSuccess, setCredentials } from '../../actions';
 
 
 interface FormData {
@@ -31,6 +32,7 @@ const adminOptions = [
 ]
 export default function CreateTicket() {
    const { username } = useSelector((state: any) => state.auth);
+   const dispatch = useDispatch();
    const navigate = useNavigate();
     const [formData, setFormData] = useState<FormData>({
         priority: 'high',
@@ -41,7 +43,19 @@ export default function CreateTicket() {
         assign_to: ''
       });
       const [adminOptions, setAdminOptions] = useState<AdminOption[]>([]);
-      
+      // console.log("\n username ----", username);
+
+      useEffect(() => {
+        const storedLoginState = JSON.parse(localStorage.getItem('loginState') || '{}');
+        if (storedLoginState.username) {
+          dispatch(setCredentials({ username: storedLoginState.username, password: storedLoginState.password, isAdmin: storedLoginState.isAdmin,
+          firstName: storedLoginState.firstName, lastName:storedLoginState.lastName }));
+          dispatch(loginSuccess());
+          // console.log("\n username ----", username, storedLoginState.username);
+
+        }
+
+      }, [formData]);
       useEffect(() => {
         const fetchAdmins = async () => {
           try {

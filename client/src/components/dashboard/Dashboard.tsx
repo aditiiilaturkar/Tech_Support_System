@@ -76,7 +76,7 @@ export default function Dashboard() {
           priority: ticket.priority,
           created_on: ticket.created_on,
           description: ticket.description,
-          status: ticket.is_resolved ? 'resolved' : 'open',
+          status: ticket.is_resolved ? 'closed' : 'open',
           assign_to: ticket.assign_to,
           image: ticket.image_data ? createImageUrl(ticket.image_data) : null,
         }));

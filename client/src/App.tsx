@@ -20,7 +20,7 @@ function App() {
 
   useEffect(() => {
     const storedLoginState = JSON.parse(localStorage.getItem('loginState') || '{}');
-    if (storedLoginState.username && storedLoginState.password) {
+    if (storedLoginState.username) {
       dispatch(setCredentials({ username: storedLoginState.username, password: storedLoginState.password, isAdmin: storedLoginState.isAdmin,
       firstName: storedLoginState.firstName, lastName:storedLoginState.lastName }));
       dispatch(loginSuccess());
