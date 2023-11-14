@@ -8,7 +8,7 @@ interface FormData {
     description: string;
     department: string;
     created_on: string;
-    image: File | null;
+    image: string | null;
     assign_to: string;
 }
 
@@ -67,12 +67,20 @@ export default function CreateTicket() {
         });
     };
 
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] || null;
-        setFormData({
-          ...formData,
-          image: file,
-        });
+    const handleFileChange = (event:  React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            // console.log("\n reader.result?.toString().split(',')[1] -- ", reader.result?.toString().split(',')[1]);
+            setFormData({
+              ...formData,
+              image: reader.result?.toString().split(',')[1] || '', // Extract base64 part
+            });
+          };
+          reader.readAsDataURL(file);
+        }
     };
 
     const handleSubmit = async (e: FormEvent) => {
@@ -85,7 +93,7 @@ export default function CreateTicket() {
             description: formData.description,
             created_on: formData.created_on,
             created_by: username,
-            image: formData.image,
+            image_data: formData.image,
             assign_to: formData.assign_to
           };
       
@@ -159,17 +167,7 @@ export default function CreateTicket() {
                 <option value="HR">HR</option>
               </select>
             </div>
-            <div className="mb-4">
-              <label className="block font-bold mb-2">created_on</label>
-              <input
-                type="datetime-local"
-                name="created_on"
-                value={formData.created_on}
-                onChange={handleInputChange}
-                className="border border-gray-300 p-2 w-full rounded"
-                required
-              />
-            </div>
+           
             <div className="mb-4">
               <label className="block font-bold mb-2">Image Upload</label>
               <input

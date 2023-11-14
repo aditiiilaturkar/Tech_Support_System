@@ -84,7 +84,7 @@ export function Ticket({
 }
 
 
-  const TimestampDisplay: React.FC<{ timestamp: string }> = ({ timestamp }) => {
+ export  const TimestampDisplay: React.FC<{ timestamp: string }> = ({ timestamp }) => {
     const [formattedTimestamp, setFormattedTimestamp] = useState<string>('');
   
     useEffect(() => {

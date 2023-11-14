@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -170,7 +170,6 @@ func LoginHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, response)
 }
-
 func CreateTicketHandler(c echo.Context) error {
 	var createTicketRequest CreateTicketRequest
 	if err := c.Bind(&createTicketRequest); err != nil {
@@ -181,20 +180,23 @@ func CreateTicketHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid image data"})
 	}
+
 	query := `
         INSERT INTO tickets (department, priority, description, created_on, created_by, image_data, is_resolved, assign_to)
         VALUES ($1, $2, $3, $4, $5, $6, false, $7)
     `
+	currentTime := time.Now().UTC()
 	_, err = db.Exec(query,
 		createTicketRequest.Department,
 		createTicketRequest.Priority,
 		createTicketRequest.Description,
-		createTicketRequest.CreatedOn,
+		currentTime,
 		createTicketRequest.CreatedBy,
-		pq.Array(imageData),
+		imageData,
 		createTicketRequest.AssignTo,
 	)
 	if err != nil {
+		fmt.Printf("err ----- %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create ticket"})
 	}
 
@@ -203,6 +205,7 @@ func CreateTicketHandler(c echo.Context) error {
 		"message": "Ticket created successfully!",
 	})
 }
+
 func GetTicketDetailsHandler(c echo.Context) error {
 	ticketID, err := strconv.Atoi(c.Param("ticketId"))
 	if err != nil || ticketID <= 0 {
@@ -372,7 +375,7 @@ func GetCommentsHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
 	}
 
-	fmt.Printf("Ticket ID: %v\n", ticketID)
+	// fmt.Printf("Ticket ID: %v\n", ticketID)
 
 	if ticketID <= 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})

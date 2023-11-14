@@ -1,6 +1,6 @@
 
 import React , { useEffect, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux';
 import {
   BrowserRouter,
   Routes,
@@ -11,6 +11,7 @@ import { FaSort, FaSortDown } from 'react-icons/fa';
 import { Ticket } from '../admin/Ticket';
 import { loginSuccess, setAllTickets, setCredentials } from '../../actions';
 import TicketDetails from '../admin/TicketDetails';
+import Loader from '../Loader';
 
 interface TicketData {
   id: number;
@@ -30,25 +31,36 @@ export default function Dashboard() {
 
   const { isAdmin } = useSelector((state:any)=> state.auth);
   const { username } = useSelector((state: any) => state.auth);
-  const [sortHighToLowPriority, seSortHighToLowPriority] = useState(false); 
+  const [sortOptions, setSortOptions] = useState({
+    factor: 'priority',
+    order: 'asc',
+  });
   const { alltickets } = useSelector((state: any) => state.tickets);
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const handleSortToggle = () => {
-    seSortHighToLowPriority(!sortHighToLowPriority);
+  const handleSortToggle = (event: any) => {
+    const { name, value } = event.target;
+    setSortOptions((prevOptions) => ({
+      ...prevOptions,
+      [name]: value,
+    }));
   };
 
   let sortedTickets = [];
   if(alltickets) {
-    sortedTickets = [...alltickets].sort((a, b) => {
-      const priorityOrder = ['low', 'medium', 'high'];
-    
-      if (sortHighToLowPriority) {
-        return priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority);
-      } else {
-        return priorityOrder.indexOf(b.priority) - priorityOrder.indexOf(a.priority);
+     sortedTickets = [...alltickets].sort((a, b) => {
+      switch (sortOptions.factor) {
+        case 'priority':
+          return sortOptions.order === 'asc' ? a.priority.localeCompare(b.priority) : b.priority.localeCompare(a.priority);
+        case 'submissionTime':
+          return sortOptions.order === 'asc' ? a.created_on.localeCompare(b.created_on) : b.created_on.localeCompare(a.created_on);
+        case 'status':
+          return sortOptions.order === 'asc' ? a.status.localeCompare(b.status) : b.status.localeCompare(a.status);
+       
+        default:
+          return 0;
       }
     });
   }
@@ -116,16 +128,31 @@ export default function Dashboard() {
   }
 
   if(alltickets == undefined || sortedTickets == undefined) {
-    return null;
+    return <div className='ml-[56rem]'>
+      <Loader />
+    </div>
   }
 
   if(isAdmin) {
 
     return (
       <div className="overflow-y-auto h-screen w-full max-w-screen mt-4">
-         <button onClick={handleSortToggle}  className="absolute top-4 right-12 p-3 bg-blue-500 text-white rounded-full">
-            {'asc' === 'asc' ? <FaSort /> : <FaSortDown />}
-          </button>
+       <div className="absolute top-0 right-0 flex items-end mr-10 mt-4">
+          <label className="text-sm text-gray-600 mr-2">
+            Sort by:
+          </label>
+          <select
+            name="factor"
+            value={sortOptions.factor}
+            onChange={handleSortToggle}
+            className="bg-white border border-gray-300 rounded px-3 py-1 text-sm"
+          >
+            <option value="priority">Priority</option>
+            <option value="submissionTime">Submission Time</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+
         <div>
           <div className='mt-12'>
           {sortedTickets.map((ticket: TicketData) => {
@@ -158,16 +185,31 @@ export default function Dashboard() {
   }else{
     return (
       <div className="overflow-y-auto h-screen w-full max-w-screen mt-4"> 
-       <button onClick={handleSortToggle}  className="absolute top-4 ml-auto p-3 bg-blue-500 text-white rounded-full">
-            {'asc' === 'asc' ? <FaSort /> : <FaSortDown />}
-          </button>
-        <button onClick={handleCreateTicket}  className="absolute top-5 right-12 mb-30 bg-blue-500 text-white px-4 py-2 rounded">
+     <div className='flex flex-row-reverse items-start gap-2 mt-4 mr-4'>
+        <button onClick={handleCreateTicket} className="bg-blue-500 text-white px-4 py-2 rounded">
           Create Ticket
         </button>
+        <div className="flex items-center mt-4">
+        <label className="text-sm text-gray-600 mr-2">
+          Sort by:
+        </label>
+        <select
+          name="factor"
+          value={sortOptions.factor}
+          onChange={handleSortToggle}
+          className="bg-white border border-gray-300 rounded px-3 py-1 text-sm"
+        >
+          <option value="priority">Priority</option>
+          <option value="submissionTime">Submission Time</option>
+          <option value="status">Status</option>
+        </select>
+      </div>
+ 
+    </div>
+
         <h1 className="text-2xl font-bold mb-4  text-center ">Your Tickets</h1>
         <div className="overflow-y-auto h-screen w-full max-w-screen mt-4">
         {sortedTickets.map((ticket: TicketData) => {
-          // console.log("\n hiiii ", ticket.name,username );
           if (ticket.name === username) {
             return (
               <div key={ticket.id} className="mb-4">

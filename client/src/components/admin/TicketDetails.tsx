@@ -2,18 +2,21 @@ import React, { ChangeEvent, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux'
 import SideBar from '../dashboard/SideBar';
-import { Button, Card, CardBody } from '@material-tailwind/react';
+import { Card, CardBody } from '@material-tailwind/react';
 import { IoMdSend } from 'react-icons/io';
 import { loginSuccess, setAllTickets, setCredentials } from '../../actions';
+import Loader from '../Loader';
+import { TimestampDisplay } from './Ticket';
 
 interface TicketData {
     id: number;
-    name: string;
+    created_by: string;
     department: string;
     priority: string;
     created_on: string;
     is_resolved: boolean;
     description:string;
+    image_data: any;
     assign_to: string;
   }
 
@@ -166,9 +169,10 @@ const TicketDetails: React.FC = () => {
     setNewComment(e.target.value);
   };
 
-    if(!currentTicket){
-        return null;
+    if(!currentTicket ||  loading){
+        return <Loader />;
     }
+    console.log("currentTicket ", currentTicket);
   return (
     <div className="bg-slate-50 flex flex-row flex-1 w-full">
       
@@ -203,9 +207,8 @@ const TicketDetails: React.FC = () => {
             {currentTicket.description}
            </div>
          
-            <img src={'https://picsum.photos/200/300'}
-                className='max-h-[20rem] max-w-[40rem] mb-4'
-            />
+              {<img src={`data:image/jpeg;base64,${currentTicket.image_data}`} alt={`Ticket ${ticketId} Image`} 
+              className='max-h-[40rem] max-w-[30rem] mb-4 left-50'/>}
          
            <div className='flex flex-row items-center'>
            <div className='text-blue-500 text-sm'>
@@ -213,10 +216,11 @@ const TicketDetails: React.FC = () => {
            </div>
            <div className='flex flex-row items-center ml-auto gap-2'>
            <div className='font-bold text-sm'>
-            {currentTicket.name},
+            {currentTicket.created_by},
            </div>
            <div className='ml-auto text-sm text-slate-700'>
-            {currentTicket.created_on}
+            
+            <TimestampDisplay timestamp={currentTicket.created_on} />
            </div>
 
            </div>
@@ -241,9 +245,7 @@ const TicketDetails: React.FC = () => {
 
                 }
             </div>
-            {isAdmin ? (
-              <>
-                         <div className='flex flex-col'>
+            <div className='flex flex-col'>
                          <div className="input-group relative">
                              <input
                                  className='h-[4rem] border rounded-xl w-full mt-4 px-3 border-slate-800 pr-10'
@@ -260,6 +262,9 @@ const TicketDetails: React.FC = () => {
                              </span>
                          </div>
                          </div>
+
+            {isAdmin ? (
+              <>
                          <div className='flex flex-col mt-2 items-center'>
                          {!currentTicket.is_resolved && (
                              <button
@@ -287,38 +292,3 @@ const TicketDetails: React.FC = () => {
 };
 
 export default TicketDetails;
-// alltickets.find((ticket: TicketData) => ticket.id === parsedTicketId);
-//   console.log("\n alltickets --- ", alltickets);
-//   console.log("\n hello --- ", currentTicket);
-
-//   const handleResolve = async () => {
-//     try {
-//       const response = await fetch(`http://localhost:8080/resolve_ticket/${resolveTicketId}`, {
-//         method: 'PUT',
-//         headers: {
-//           'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify({
-//           id: resolveTicketId
-//         }),
-//       });
-  
-//       const data = await response.json();
-  
-//       if (data.success) {
-//         // console.log('Ticket resolved successfully!');
-//         const updatedTickets = alltickets.map((ticket: TicketData) => {
-//           if (ticket.id === resolveTicketId) {
-//             return { ...ticket, status: 'resolved' };
-//           }
-//           return ticket;
-//         });
-//         dispatch(setAllTickets(updatedTickets));
-//         // setShowPopup(false);
-//       } else {
-//         console.error('Failed to resolve ticket:', data.message);
-//       }
-//     } catch (error) {
-//       console.error('Error resolving ticket:', error);
-//     }
-//   };

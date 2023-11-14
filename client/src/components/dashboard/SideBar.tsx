@@ -11,7 +11,9 @@ const SideBar = () => {
 
   const Menus = [
     { title: "Accounts", src: "User", gap: false, img: User },
-    { title: "Dashboard", src: "Chart_fill", img:User },
+    { title: "Dashboard", src: "Chart_fill", img:User, onclick: () => {
+      navigate('/dashboardLayout');
+    } },
     { title: "Search", src: "Search" , img: Search},
     { title: "Logout", src: "Setting" , img: Setting, onclick: () => {
       dispatch(logout());
