@@ -7,10 +7,10 @@ import {
   Route,
   useNavigate,
 } from "react-router-dom";
+import { FaSort, FaSortDown } from 'react-icons/fa';
 import { Ticket } from '../admin/Ticket';
-import { setAllTickets } from '../../actions';
-import SideBar from './SideBar';
-import { all } from 'axios';
+import { loginSuccess, setAllTickets, setCredentials } from '../../actions';
+import TicketDetails from '../admin/TicketDetails';
 
 interface TicketData {
   id: number;
@@ -24,31 +24,35 @@ interface TicketData {
 }
 
 
-const popupMessage = "Do you want to resolve this ticket?";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
-  const [showPopup, setShowPopup] = useState(false);
-  const [resolveTicketId, setResolveTicketId] = useState<number | null>(null);
 
   const { isAdmin } = useSelector((state:any)=> state.auth);
   const { username } = useSelector((state: any) => state.auth);
-
+  const [sortHighToLowPriority, seSortHighToLowPriority] = useState(false); 
   const { alltickets } = useSelector((state: any) => state.tickets);
 
-  console.log("\n username -- ", username);
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  const handleSortToggle = () => {
+    seSortHighToLowPriority(!sortHighToLowPriority);
+  };
 
-  const handleClick = (id: number) => {
-    setShowPopup(true);
-    setResolveTicketId(id);
+  let sortedTickets = [];
+  if(alltickets) {
+    sortedTickets = [...alltickets].sort((a, b) => {
+      const priorityOrder = ['low', 'medium', 'high'];
+    
+      if (sortHighToLowPriority) {
+        return priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority);
+      } else {
+        return priorityOrder.indexOf(b.priority) - priorityOrder.indexOf(a.priority);
+      }
+    });
   }
 
-  const handleClosePopup = () => {
-    setShowPopup(false);
-  }
   useEffect(() => {
     const fetchTickets = async () => {
       try {
@@ -67,9 +71,12 @@ export default function Dashboard() {
           image: ticket.image_data ? createImageUrl(ticket.image_data) : null,
         }));
 
-        dispatch(setAllTickets(formattedTickets));
+        dispatch(setAllTickets(formattedTickets ?? [] ));
+        
         setLoading(false);
       } catch (error) {
+        dispatch(setAllTickets([]));
+        
         console.error('Error fetching tickets:', error);
       }
     };
@@ -77,56 +84,51 @@ export default function Dashboard() {
     fetchTickets();
   }, [dispatch, loading]);
 
+  useEffect(() => {
+    const storedLoginState = localStorage.getItem('loginState');
+
+    if (storedLoginState) {
+      const storedDetails = JSON.parse(storedLoginState);
+
+      dispatch(setCredentials({
+        username: storedDetails.username,
+        password: '',
+        isAdmin: storedDetails.isAdmin,
+        firstName: storedDetails.firstName,
+        lastName: storedDetails.lastName,
+      }));
+      dispatch(loginSuccess());
+
+      
+      // navigate('/dashboardLayout');
+    }
+  }, []); 
+
   const createImageUrl = (imageData: any) => {
-    const blob = new Blob([imageData], { type: 'image/png' }); // Adjust the type based on your image format
+    const blob = new Blob([imageData], { type: 'image/png' }); 
+    // console.log("\n URL.createObjectURL(blob) -- ", URL.createObjectURL(blob));
     return URL.createObjectURL(blob);
   };
-  const handleResolve = async () => {
-    try {
-      const response = await fetch(`http://localhost:8080/resolve_ticket/${resolveTicketId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: resolveTicketId
-        }),
-      });
   
-      const data = await response.json();
-  
-      if (data.success) {
-        // console.log('Ticket resolved successfully!');
-        const updatedTickets = alltickets.map((ticket: TicketData) => {
-          if (ticket.id === resolveTicketId) {
-            return { ...ticket, status: 'resolved' };
-          }
-          return ticket;
-        });
-        dispatch(setAllTickets(updatedTickets));
-        setShowPopup(false);
-      } else {
-        console.error('Failed to resolve ticket:', data.message);
-      }
-    } catch (error) {
-      console.error('Error resolving ticket:', error);
-    }
-  };
-  
-  const resolvedTicket = alltickets.find((ticket: TicketData) => ticket.id === resolveTicketId);
-  console.log("\n resolvedTicket -- ", resolvedTicket);
   const handleCreateTicket = () => {
 
       navigate('/createTicket');
   }
 
+  if(alltickets == undefined || sortedTickets == undefined) {
+    return null;
+  }
 
   if(isAdmin) {
+
     return (
       <div className="overflow-y-auto h-screen w-full max-w-screen mt-4">
-        
+         <button onClick={handleSortToggle}  className="absolute top-4 right-12 p-3 bg-blue-500 text-white rounded-full">
+            {'asc' === 'asc' ? <FaSort /> : <FaSortDown />}
+          </button>
         <div>
-          {alltickets.map((ticket: TicketData) => {
+          <div className='mt-12'>
+          {sortedTickets.map((ticket: TicketData) => {
               if(ticket.assign_to === username) {
               return (
                 <Ticket
@@ -138,7 +140,6 @@ export default function Dashboard() {
                 created_on={ticket.created_on}
                 status={ticket.status}
                 priority={ticket.priority}
-                handleClick={handleClick}
                 isAdmin={isAdmin}
               />
   
@@ -146,71 +147,27 @@ export default function Dashboard() {
   
             }
           })}
-        </div>
-        {showPopup && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-60 ">
-            <div className="bg-white p-8 rounded shadow-lg w-1/2 order-gray-300">
-              {resolvedTicket && (
-                <div className="mt-4">
-                  <h2 className="text-lg font-bold mb-2">Resolved Ticket Details</h2>
-                  <table className="w-full">
-                    <tbody>
-                      <tr>
-                        <td className="font-semibold py-1 text-xl">Ticket ID:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.id}</td>
-                      </tr>
-                      <tr>
-                        <td className="font-semibold py-1 text-xl">Name:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.name}</td>
-                      </tr>
-                      <tr>
-                        <td className="font-semibold py-1 text-xl">Department:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.department}</td>
-                      </tr>
-                      <tr>
-                        <td className="font-semibold py-1 text-xl">Priority:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.priority}</td>
-                      </tr>
-                      <tr>
-                        <td className="font-semibold py-1 text-xl">Time:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.created_on}</td>
-                      </tr>
-                      <tr>
-                        <td className="font-semibold py-1 text-xl">Status:</td>
-                        <td className="py-1 text-xl">{resolvedTicket.status} {resolvedTicket.assign_to}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                      {resolvedTicket.image && (
-                            <img
-                            src={`data:image/png;base64,${resolvedTicket.image}`}
-                            alt={`Ticket ${resolvedTicket.id} Image`}
-                          />
-                          )}
-                </div>
-                  )}
-              <div className="mt-auto flex flex-col items-end">
-                <div className="flex justify-end">
-                  <button className="bg-red-500 text-white px-4 py-2 mr-2 rounded-full hover:bg-red-600 transition-colors" onClick={handleClosePopup}>Cancel</button>
-                  <button className="bg-green-500 text-white px-4 py-2 rounded-full hover:bg-green-600 transition-colors" onClick={handleResolve}>Resolve</button>
-                </div>
-              </div>
-            </div>
           </div>
-        )}
+         
+        <Routes>
+          <Route path="/ticket/:ticketId" element={<TicketDetails />} />
+        </Routes>
+        </div>
       </div>
     );  
   }else{
-
     return (
       <div className="overflow-y-auto h-screen w-full max-w-screen mt-4"> 
-
+       <button onClick={handleSortToggle}  className="absolute top-4 ml-auto p-3 bg-blue-500 text-white rounded-full">
+            {'asc' === 'asc' ? <FaSort /> : <FaSortDown />}
+          </button>
         <button onClick={handleCreateTicket}  className="absolute top-5 right-12 mb-30 bg-blue-500 text-white px-4 py-2 rounded">
           Create Ticket
         </button>
         <h1 className="text-2xl font-bold mb-4  text-center ">Your Tickets</h1>
         <div className="overflow-y-auto h-screen w-full max-w-screen mt-4">
-        {alltickets.map((ticket: TicketData) => {
+        {sortedTickets.map((ticket: TicketData) => {
+          // console.log("\n hiiii ", ticket.name,username );
           if (ticket.name === username) {
             return (
               <div key={ticket.id} className="mb-4">
@@ -222,9 +179,11 @@ export default function Dashboard() {
                   description={ticket.description}
                   status={ticket.status}
                   priority={ticket.priority}
-                  handleClick={() => {}}
                   isAdmin={isAdmin}
                 />
+                <Routes>
+                  <Route path="/ticket/:ticketId" element={<TicketDetails />} />
+                </Routes>
               </div>
             );
           }

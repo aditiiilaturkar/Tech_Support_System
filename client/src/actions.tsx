@@ -19,10 +19,10 @@ export interface TicketData {
   assign_to: string;
 }
 export interface TicketState {
-  alltickets: TicketData[];
+  alltickets: TicketData[] | undefined;
 }
 const initialTicketState: TicketState = {
-  alltickets: [],
+  alltickets: undefined,
 };
 const initialState: AuthState = {
   username: null,
@@ -30,7 +30,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isAdmin: false,
   firstName: "",
-  lastName: ""
+  lastName: "",
 };
 const authSlice = createSlice({
   name: 'auth',

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -76,8 +77,9 @@ type UserDetails struct {
 	LastName  string `json:"last_name"`
 	IsAdmin   bool   `json:"is_admin"`
 }
-type CreateCommentRequest struct {
-	Id        int    `json:"id"`
+
+type CreateCommentRequest struct { // here commentId is serial in db
+	TicketId  int    `json:"id"` //tickets
 	Comment   string `json:"comment"`
 	CommentBy string `json:"comment_by"`
 }
@@ -85,6 +87,16 @@ type CreateCommentRequest struct {
 type CreateCommentResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+
+type Comment struct {
+	Comment   string `json:"comment"`
+	TicketId  int    `json:"ticket_id"`
+	CommentBy string `json:"comment_by"`
+	CommentID int    `json:"commentid"`
+}
+type GetCommentsRequest struct {
+	TicketId int `json:"id" form:"id" param:"id"`
 }
 type TicketsResponse struct {
 	Id          int    `json:"id"`
@@ -165,13 +177,10 @@ func CreateTicketHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 	}
 
-	// Decode base64-encoded image data
 	imageData, err := base64.StdEncoding.DecodeString(createTicketRequest.ImageData)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid image data"})
 	}
-
-	// Insert the ticket with image data into the database
 	query := `
         INSERT INTO tickets (department, priority, description, created_on, created_by, image_data, is_resolved, assign_to)
         VALUES ($1, $2, $3, $4, $5, $6, false, $7)
@@ -194,42 +203,36 @@ func CreateTicketHandler(c echo.Context) error {
 		"message": "Ticket created successfully!",
 	})
 }
+func GetTicketDetailsHandler(c echo.Context) error {
+	ticketID, err := strconv.Atoi(c.Param("ticketId"))
+	if err != nil || ticketID <= 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket ID"})
+	}
 
-// func GetTicketsHandler(c echo.Context) error {
-// 	query := "SELECT * FROM tickets"
-// 	rows, err := db.Query(query)
-// 	if err != nil {
-// 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
-// 	}
-// 	defer rows.Close()
+	query := "SELECT * FROM tickets WHERE id = $1"
+	row := db.QueryRow(query, ticketID)
 
-// 	var tickets []TicketsResponse
-// 	for rows.Next() {
-// 		var ticket TicketsResponse
-// 		err := rows.Scan(
-// 			&ticket.Id,
-// 			&ticket.Department,
-// 			&ticket.Priority,
-// 			&ticket.Description,
-// 			&ticket.CreatedOn,
-// 			&ticket.CreatedBy,
-// 			&ticket.ImageData,
-// 			&ticket.IsResolved,
-// 			&ticket.AssignTo,
-// 		)
+	var ticket TicketsResponse
+	err = row.Scan(
+		&ticket.Id,
+		&ticket.Department,
+		&ticket.Priority,
+		&ticket.Description,
+		&ticket.CreatedOn,
+		&ticket.CreatedBy,
+		&ticket.ImageData,
+		&ticket.IsResolved,
+		&ticket.AssignTo,
+	)
 
-// 		if err != nil {
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch tickets!"})
-// 		}
-// 		if len(ticket.ImageData) > 0 {
-// 			ticket.ImageData = base64.StdEncoding.EncodeToString(ticket.ImageData)
-// 		}
+	if err == sql.ErrNoRows {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Ticket not found"})
+	} else if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
 
-// 		tickets = append(tickets, ticket)
-// 	}
-
-//		return c.JSON(http.StatusOK, tickets)
-//	}
+	return c.JSON(http.StatusOK, ticket)
+}
 
 func GetTicketsHandler(c echo.Context) error {
 	query := "SELECT * FROM tickets"
@@ -304,7 +307,7 @@ func CreateCommentHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 	}
 
-	exists, err := isTicketExists(createCommentRequest.Id)
+	exists, err := isTicketExists(createCommentRequest.TicketId)
 	if err != nil {
 		fmt.Println("Error checking if ticket exists:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
@@ -315,7 +318,7 @@ func CreateCommentHandler(c echo.Context) error {
 	_, err = db.Exec(`
 		INSERT INTO comments (comment, Id, comment_by)
 		VALUES ($1, $2, $3)
-	`, createCommentRequest.Comment, createCommentRequest.Id, createCommentRequest.CommentBy)
+	`, createCommentRequest.Comment, createCommentRequest.TicketId, createCommentRequest.CommentBy)
 
 	if err != nil {
 		fmt.Println("Error inserting comment:", err)
@@ -362,6 +365,47 @@ func GetAdminsHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, admins)
 }
+
+func GetCommentsHandler(c echo.Context) error {
+	ticketID, err := strconv.Atoi(c.Param("ticketId"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
+	}
+
+	fmt.Printf("Ticket ID: %v\n", ticketID)
+
+	if ticketID <= 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
+	}
+
+	rows, err := db.Query(`
+		SELECT comment, id, comment_by, commentid
+		FROM comments
+		WHERE id = $1
+	`, ticketID)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+	defer rows.Close()
+
+	var comments []Comment
+	for rows.Next() {
+		var comment Comment
+		err := rows.Scan(&comment.Comment, &comment.TicketId, &comment.CommentBy, &comment.CommentID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch comments."})
+		}
+		comments = append(comments, comment)
+	}
+
+	if len(comments) > 0 {
+		return c.JSON(http.StatusOK, comments)
+	} else {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "No comments found for the given ticket."})
+	}
+}
+
 func main() {
 	e := echo.New()
 	e.Use(middleware.CORS())
@@ -378,10 +422,12 @@ func main() {
 
 	e.POST("/login", LoginHandler)
 	e.GET("/get_tickets", GetTicketsHandler)
+	e.GET("/get_ticket_details/:ticketId", GetTicketDetailsHandler)
 	e.GET("/get_admins_data", GetAdminsHandler)
 	e.POST("/create_ticket", CreateTicketHandler)
 	e.PUT("/resolve_ticket/:id", ResolveTicketHandler)
 	e.POST("/create-comment", CreateCommentHandler)
+	e.GET("/get-comments/:ticketId", GetCommentsHandler)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

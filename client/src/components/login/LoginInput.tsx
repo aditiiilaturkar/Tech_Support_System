@@ -13,7 +13,7 @@ export default function LoginInput({
     customClass
 }: LoginInputProps){
     return(
-        <div className="my-5">
+        <div className="my-5 w-[30rem]">
             <label htmlFor={labelFor} className="sr-only">
               {labelText}
             </label>

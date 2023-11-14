@@ -1,75 +1,88 @@
 import {
-    Card,
-    CardHeader,
-    CardBody,
-    Typography,
-    Button,
-  } from "@material-tailwind/react";
-  import { useState, useEffect } from 'react';
+  Card,
+  CardBody,
+  Typography,
+  Button,
+} from "@material-tailwind/react";
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
-  const isResolved = (status:string): boolean => {
-    if(status == 'open')    return false;
-    return true;
-  } 
+const isResolved = (status: string): boolean => {
+  return status === 'resolved';
+}
+const getPriorityColor = (priority: string) => {
+  switch (priority) {
+    case 'high':
+      return 'text-red-700'; 
+    case 'medium':
+      return 'text-yellow-700';
+    case 'low':
+      return 'text-blue-700'; 
+    default:
+      return 'text-gray-700'; 
+  }
+};
+export function Ticket({
+  name,
+  department,
+  created_on,
+  description,
+  status,
+  priority,
+  id,
+  isAdmin
+}: TicketProps) {
 
-  export function Ticket({
-    name, 
-    department,
-    created_on,
-    description,
-    status,
-    priority,
-    handleClick,
-    id,
-    isAdmin
-  }: TicketProps) {
-    console.log("\n am i called?" , department);
-    return (
-      <Card className=" flex-row h-full ml-10 mr-10 border border-gray-300 shadow-lg p-8 mb-4">
-        <CardBody className="w-full flex flex-col">
-            <div className="flex gap-4 flex-row items-center">
-            <Typography variant="h4" className=" text-blue-500">
-            {name}
+  return (
+    <Card className="flex-row h-full ml-10 mr-10 border border-gray-300 shadow-lg p-8 mb-4">
+      <CardBody className="w-full flex flex-col">
+        <Link to={`/ticket/${id}`} className="hover:text-blue-500">
+          <div className="flex gap-4 flex-row items-center">
+        <Typography
+          variant="h6"
+          className={` uppercase ${getPriorityColor(priority)}`}
+          >
+          {priority}
+        </Typography>
+            <Typography className="text-blue-500">
+              {name}
+            </Typography>
+      
+            {isAdmin ? (
+              <a href="#" className="inline-block ml-auto">
+                <Button
+                  variant="text"
+                  className={`flex items-center gap-2 ${isResolved(status) ? 'text-gray-500' : 'text-red-500'}`}
+                >
+                  {isResolved(status) ? 'Closed' : 'Resolve'}
+                  {!isResolved(status) && (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      className="h-4 w-4"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+                    </svg>
+                  )}
+                </Button>
+              </a>
+            ) : null}
+          </div>
+          <Typography color="gray" className="mb-2 mt-2 text-xl text-slate-500">
+            {description}
           </Typography>
-          <Typography variant="h6" color="gray" className="text-sm uppercase">
-            {priority}
-          </Typography>
-          {isAdmin ? (
-          <a href="#" className="inline-block ml-auto" onClick={() => isResolved(status) ? null : handleClick(id)}>
-          <Button
-      variant="text"
-      className={`flex items-center gap-2 ${isResolved(status) ? 'text-gray-500' : 'text-red-500'}`}
-    >
-      {isResolved(status) ? 'Closed' : 'Resolve'}
-      {!isResolved(status) && (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-          className="h-4 w-4"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
-        </svg>
-      )}
-    </Button>
-        </a>
-
-          ) : null}
-            </div>
-            <Typography color="gray" className="mb-2 mt-2 font-normal">
-              {description}
-          </Typography>
-          <Typography className=" text-slate-800 text-sm ml-auto mt-2">
-            {/* {created_on} */}
+          <Typography className="text-slate-800 text-sm ml-auto mt-2">
             <TimestampDisplay timestamp={created_on} />
           </Typography>
+        </Link>
+      </CardBody>
+    </Card>
+  );
+}
 
-        </CardBody>
-      </Card>
-    );
-  }
 
   const TimestampDisplay: React.FC<{ timestamp: string }> = ({ timestamp }) => {
     const [formattedTimestamp, setFormattedTimestamp] = useState<string>('');
@@ -98,18 +111,6 @@ import {
     );
   };
   
-  // Example usage:
-  const App: React.FC = () => {
-    const timestamp = '2023-11-13T02:53:20Z';
-  
-    return (
-      <div>
-        <h1>Timestamp Display</h1>
-        <TimestampDisplay timestamp={timestamp} />
-      </div>
-    );
-  };
-  
 
 interface TicketProps {
     name: string;
@@ -119,6 +120,5 @@ interface TicketProps {
     priority: string;
     description: string;
     id: number,
-    handleClick: (id:number) => void;
     isAdmin?: boolean
   }

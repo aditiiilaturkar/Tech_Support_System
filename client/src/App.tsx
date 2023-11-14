@@ -15,6 +15,7 @@ import DefaultLayout from './components/dashboard/DefaultLayout';
 import LoginPage from './components/login/LoginPage';
 import routes from './routes';
 import CreateTicket from './components/employee/CreateTicket';
+import TicketDetails from './components/admin/TicketDetails';
 
 
 function App() {
@@ -24,9 +25,6 @@ function App() {
     const storedLoginState = JSON.parse(localStorage.getItem('loginState') || '{}');
     console.log("\n hello ji --- ", storedLoginState);
     if (storedLoginState.username && storedLoginState.password) {
-
-      
-      // console.log("\n i am logged in -> ", storedLoginState.username);
       dispatch(setCredentials({ username: storedLoginState.username, password: storedLoginState.password, isAdmin: storedLoginState.isAdmin,
       firstName: storedLoginState.firstName, lastName:storedLoginState.lastName }));
       dispatch(loginSuccess());
@@ -45,6 +43,7 @@ function App() {
                 <Route path="/" element={<LoginPage />} />
                 <Route path="/dashboardLayout" element={<DefaultLayout />} />
                 <Route path="/createTicket" element={<CreateTicket />} />
+                <Route path="/ticket/:ticketId" element={<TicketDetails />} />
         </Routes>
       </BrowserRouter>
     
