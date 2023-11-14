@@ -1,13 +1,11 @@
 
-import React , { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
-  BrowserRouter,
   Routes,
   Route,
   useNavigate,
 } from "react-router-dom";
-import { FaSort, FaSortDown } from 'react-icons/fa';
 import { Ticket } from '../admin/Ticket';
 import { loginSuccess, setAllTickets, setCredentials } from '../../actions';
 import TicketDetails from '../admin/TicketDetails';

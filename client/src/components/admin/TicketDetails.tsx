@@ -206,10 +206,15 @@ const TicketDetails: React.FC = () => {
             <div className='text-xl text-slate-500 my-4'>
             {currentTicket.description}
            </div>
-         
-              {<img src={`data:image/jpeg;base64,${currentTicket.image_data}`} alt={`Ticket ${ticketId} Image`} 
-              className='max-h-[40rem] max-w-[30rem] mb-4 left-50'/>}
-         
+            {currentTicket.image_data && (
+  <img
+  src={`data:image/jpeg;base64,${currentTicket.image_data}`}
+  alt={`Ticket ${ticketId} Image`}
+  className='max-h-[40rem] max-w-[30rem] mb-4 mx-auto block'
+/>
+            )}    
+                  
+
            <div className='flex flex-row items-center'>
            <div className='text-blue-500 text-sm'>
            {currentTicket.assign_to}

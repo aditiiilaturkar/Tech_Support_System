@@ -1,17 +1,8 @@
-import React , { Suspense } from 'react';
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-} from "react-router-dom";
 import Dashboard from './Dashboard';
 import SideBar from './SideBar';
-import { useSelector, useDispatch } from 'react-redux'
 
 
 export default function DefaultLayout(){
-    const { isAuthenticated = false } = useSelector((state: any) => state.auth);
-    const { isAdmin } = useSelector((state:any)=> state.auth);
 
     return (
         <div className='flex flex-row w-screen flex-1'>

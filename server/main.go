@@ -13,12 +13,20 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// const (
+// 	host     = "localhost"
+// 	port     = 5432
+// 	user     = "postgres"
+// 	password = "postgres"
+// 	dbname   = "it_support"
+// )
+
 const (
-	host     = "localhost"
+	host     = "postgres-server2.postgres.database.azure.com"
 	port     = 5432
-	user     = "postgres"
-	password = "postgres"
-	dbname   = "it_support"
+	user     = "postgres@postgres-server2"
+	password = ""
+	dbname   = "postgres"
 )
 
 var db *sql.DB
@@ -31,7 +39,7 @@ func checkError(err error) {
 
 func init() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
+		"password=%s dbname=%s sslmode=require",
 		host, port, user, password, dbname)
 
 	var err error
@@ -138,7 +146,7 @@ func LoginHandler(c echo.Context) error {
 	var count int
 	err = db.QueryRow(query, loginRequest.UserEmail, loginRequest.Password).Scan(&count)
 	if err != nil {
-		fmt.Println("Error:", err)
+		// fmt.Println("Error:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 	}
 
@@ -153,7 +161,7 @@ func LoginHandler(c echo.Context) error {
 	err = db.QueryRow(getUserDetailsQuery, loginRequest.UserEmail, loginRequest.Password).
 		Scan(&userDetails.UserEmail, &userDetails.FirstName, &userDetails.LastName, &userDetails.IsAdmin)
 	if err != nil {
-		fmt.Println("Error:", err)
+		// fmt.Println("Error:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Invalid Credentials"})
 	}
 
@@ -196,7 +204,8 @@ func CreateTicketHandler(c echo.Context) error {
 		createTicketRequest.AssignTo,
 	)
 	if err != nil {
-		fmt.Printf("err ----- %v", err)
+		// fmt.Printf("err ----- %v", err)
+
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create ticket"})
 	}
 
@@ -306,13 +315,13 @@ func ResolveTicketHandler(c echo.Context) error {
 func CreateCommentHandler(c echo.Context) error {
 	var createCommentRequest CreateCommentRequest
 	if err := c.Bind(&createCommentRequest); err != nil {
-		fmt.Println("Error binding request:", err)
+		// fmt.Println("Error binding request:", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 	}
 
 	exists, err := isTicketExists(createCommentRequest.TicketId)
 	if err != nil {
-		fmt.Println("Error checking if ticket exists:", err)
+		// fmt.Println("Error checking if ticket exists:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 	}
 	if !exists {
@@ -324,7 +333,7 @@ func CreateCommentHandler(c echo.Context) error {
 	`, createCommentRequest.Comment, createCommentRequest.TicketId, createCommentRequest.CommentBy)
 
 	if err != nil {
-		fmt.Println("Error inserting comment:", err)
+		// fmt.Println("Error inserting comment:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to create comment"})
 	}
 

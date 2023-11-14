@@ -1,6 +1,3 @@
-import {Link} from 'react-router-dom';
-
-
 interface HeaderProps {
     heading: string;
     paragraph: string;
@@ -11,8 +8,6 @@ interface HeaderProps {
 export default function Header({
     heading,
     paragraph,
-    linkName,
-    linkUrl="#"
 } : HeaderProps){
     return(
         <div className="mb-4">

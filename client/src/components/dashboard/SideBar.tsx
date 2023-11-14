@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { logout } from "../../actions";
-import {logo, Search, User, Setting, control}  from '../../images';
+import {logo, Search, User, Setting}  from '../../images';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
