@@ -5,6 +5,7 @@ import {
   Button,
 } from "@material-tailwind/react";
 import { useEffect, useState } from 'react';
+import { useDispatch } from "react-redux";
 import { Link } from 'react-router-dom';
 
 const isResolved = (status: string): boolean => {
@@ -30,26 +31,23 @@ export function Ticket({
   status,
   priority,
   id,
-  isAdmin
+  isAdmin,
+  onTicketDelete
 }: TicketProps) {
 
   return (
-    <Card className="flex-row h-full ml-10 mr-10 border border-gray-300 shadow-lg p-8 mb-4">
+    <Card className="h-full ml-4 mr-4 border border-gray-300 shadow-lg p-4 mb-4">
       <CardBody className="w-full flex flex-col">
         <Link to={`/ticket/${id}`} className="hover:text-blue-500">
-          <div className="flex gap-4 flex-row items-center">
-        <Typography
-          variant="h6"
-          className={` uppercase ${getPriorityColor(priority)}`}
-          >
-          {priority}
-        </Typography>
-            <Typography className="text-blue-500">
-              {name}
-            </Typography>
-      
-            {isAdmin ? (
-              <a href="#" className="inline-block ml-auto">
+          <div className="flex flex-col items-start">
+            <div className="flex items-center gap-2 mb-2">
+              <Typography variant="h6" className={`uppercase ${getPriorityColor(priority)}`}>
+                {priority}
+              </Typography>
+              <Typography className="text-blue-500 text-sm">{name}</Typography>
+            </div>
+            {isAdmin && (
+              <div className="flex items-center w-full mb-2 ml-auto">
                 <Button
                   variant="text"
                   className={`flex items-center gap-2 ${isResolved(status) ? 'text-gray-500' : 'text-red-500'}`}
@@ -68,19 +66,29 @@ export function Ticket({
                     </svg>
                   )}
                 </Button>
-              </a>
-            ) : null}
+              </div>
+            )}
+            <Typography color="gray" className="text-slate-500 text-sm mb-2">
+              {description}
+            </Typography>
+            <div className="flex items-center justify-between w-full">
+              <Typography className="text-slate-800 text-sm">
+                <TimestampDisplay timestamp={created_on} />
+              </Typography>
+              <Button
+                variant="text"
+                className={"flex items-center text-red-400 text-xs"}
+                onClick={() => onTicketDelete(id)}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
-          <Typography color="gray" className="mb-2 mt-2 text-xl text-slate-500">
-            {description}
-          </Typography>
-          <Typography className="text-slate-800 text-sm ml-auto mt-2">
-            <TimestampDisplay timestamp={created_on} />
-          </Typography>
         </Link>
       </CardBody>
     </Card>
   );
+  
 }
 
 
@@ -120,5 +128,7 @@ interface TicketProps {
     priority: string;
     description: string;
     id: number,
-    isAdmin?: boolean
+    isAdmin?: boolean,
+    onTicketDelete?: any
+
   }

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 interface HeaderProps {
     heading: string;
     paragraph: string;
@@ -8,6 +9,8 @@ interface HeaderProps {
 export default function Header({
     heading,
     paragraph,
+    linkName,
+    linkUrl
 } : HeaderProps){
     return(
         <div className="mb-4">
@@ -23,6 +26,14 @@ export default function Header({
             <p className="mt-2 text-center text-sm text-gray-600 ">
             {paragraph} {' '}
             </p>
+            {(linkUrl?.length && linkUrl?.length > 2) ? (
+                <Link to="/signUp" className='ml-6' onClick={() => {
+                    // console.log("\n im clicked!")
+                }}>
+                    Sign up here
+                </Link>
+
+            ): null}
         </div>
     )
 }

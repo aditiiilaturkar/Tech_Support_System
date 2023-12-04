@@ -7,8 +7,8 @@ export default function LoginPage(){
              <Header
                 heading="Login to your account"
                 paragraph="Get your issue fixed!"
-                linkName=""
-                linkUrl="#"
+                linkName="Create an account"
+                linkUrl="http://localhost:3000/signUp"
                 />
                 <Login />
         </div>

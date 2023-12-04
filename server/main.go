@@ -1,3 +1,4 @@
+// docker exec -it postgres-container psql -U postgres -d it_support
 package main
 
 import (
@@ -13,21 +14,21 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// const (
-// 	host     = "localhost"
-// 	port     = 5432
-// 	user     = "postgres"
-// 	password = "postgres"
-// 	dbname   = "it_support"
-// )
-
 const (
-	host     = "postgres-server2.postgres.database.azure.com"
+	host     = "localhost"
 	port     = 5432
-	user     = "postgres@postgres-server2"
-	password = ""
-	dbname   = "postgres"
+	user     = "postgres"
+	password = "postgres"
+	dbname   = "it_support"
 )
+
+// const (
+// 	host     = "postgres-server2.postgres.database.azure.com"
+// 	port     = 5432
+// 	user     = "postgres@postgres-server2"
+// 	password = ""
+// 	dbname   = "postgres"
+// )
 
 var db *sql.DB
 
@@ -39,7 +40,7 @@ func checkError(err error) {
 
 func init() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=require",
+		"password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
 
 	var err error
@@ -56,6 +57,28 @@ type LoginRequest struct {
 	Password  string `json:"password"`
 }
 
+type UpdateUserCommentsAccessRequest struct {
+	UserEmail string `json:"user_email"`
+	CanEdit   bool   `json:"can_edit"`
+	CanDelete bool   `json:"can_delete"`
+}
+
+type updateUserCommentsAccessResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+type CreateUserRequest struct {
+	UserEmail string `json:"user_email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	IsAdmin   bool   `json:"is_admin"`
+	Password  string `json:"password"`
+}
+
+type CreateUserResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
 type CreateTicketRequest struct {
 	Department  string `json:"department"`
 	Priority    string `json:"priority"`
@@ -86,6 +109,12 @@ type UserDetails struct {
 	IsAdmin   bool   `json:"is_admin"`
 }
 
+type EditCommentRequest struct {
+	Commentid int    `json:"commentid"`
+	Comment   string `json:"comment"`
+	UserEmail string `json:"useremail"`
+}
+
 type CreateCommentRequest struct { // here commentId is serial in db
 	TicketId  int    `json:"id"` //tickets
 	Comment   string `json:"comment"`
@@ -93,8 +122,15 @@ type CreateCommentRequest struct { // here commentId is serial in db
 }
 
 type CreateCommentResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	CommentId int    `json:"commentId"`
+}
+
+type DeleteTicketResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
+	TicketId int    `json:"ticketId"`
 }
 
 type Comment struct {
@@ -106,16 +142,25 @@ type Comment struct {
 type GetCommentsRequest struct {
 	TicketId int `json:"id" form:"id" param:"id"`
 }
+
+type GetCommentsResponse struct {
+	Comments   []Comment `json:"comments"`
+	ReachedEnd bool      `json:"reachedEnd"`
+}
+type DisableCommentsRequest struct {
+	TicketId int `json:"id" form:"id" param:"id"`
+}
 type TicketsResponse struct {
-	Id          int    `json:"id"`
-	Department  string `json:"department"`
-	Priority    string `json:"priority"`
-	Description string `json:"description"`
-	CreatedOn   string `json:"created_on"`
-	CreatedBy   string `json:"created_by"`
-	IsResolved  bool   `json:"is_resolved"`
-	AssignTo    string `json:"assign_to"`
-	ImageData   []byte `json:"image_data"`
+	Id              int    `json:"id"`
+	Department      string `json:"department"`
+	Priority        string `json:"priority"`
+	Description     string `json:"description"`
+	CreatedOn       string `json:"created_on"`
+	CreatedBy       string `json:"created_by"`
+	IsResolved      bool   `json:"is_resolved"`
+	AssignTo        string `json:"assign_to"`
+	ImageData       []byte `json:"image_data"`
+	DisableComments bool   `json:"comments_disable"`
 	// ImageData string `json:"image_data"`
 }
 
@@ -131,6 +176,20 @@ type AdminResponse struct {
 	UserEmail string `json:"user_email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+}
+
+type UsersResponse struct {
+	UserEmail string `json:"user_email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	CanEdit   bool   `json:"can_edit"`
+	CanDelete bool   `json:"can_delete"`
+}
+
+type GetUsersResponse struct {
+	Users        []UsersResponse `json:"users"`
+	ReachedEnd   bool            `json:"reachedEnd"`
+	ReachedStart bool            `json:"reachedstart"`
 }
 
 func LoginHandler(c echo.Context) error {
@@ -178,7 +237,51 @@ func LoginHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, response)
 }
+
+func SignUpHandler(c echo.Context) error {
+	var createUserRequest CreateUserRequest
+
+	if err := c.Bind(&createUserRequest); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+	}
+
+	query := `
+	INSERT INTO users (user_email, first_name, last_name, is_admin, password, can_edit, can_delete) VALUES
+	($1, $2, $3, $4, $5, true, true)
+	`
+
+	// fmt.Printf("Query: %s\n", query)
+	// fmt.Println("Values:", createUserRequest.UserEmail, createUserRequest.FirstName, createUserRequest.LastName, createUserRequest.IsAdmin, createUserRequest.Password)
+
+	_, err := db.Exec(query,
+		createUserRequest.UserEmail,
+		createUserRequest.FirstName,
+		createUserRequest.LastName,
+		createUserRequest.IsAdmin,
+		createUserRequest.Password,
+	)
+	if err != nil {
+		// fmt.Printf("err ----- %v", err)
+
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed create new user"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "User created successfully!",
+	})
+
+}
+
 func CreateTicketHandler(c echo.Context) error {
+	// fmt.Print("\n bodyyyy CreateTicketHandler--- ")
+	// body, err := io.ReadAll(c.Request().Body)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// // Print the body, you can also process it as needed
+	// println(string(body))
 	var createTicketRequest CreateTicketRequest
 	if err := c.Bind(&createTicketRequest); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
@@ -235,6 +338,7 @@ func GetTicketDetailsHandler(c echo.Context) error {
 		&ticket.ImageData,
 		&ticket.IsResolved,
 		&ticket.AssignTo,
+		&ticket.DisableComments,
 	)
 
 	if err == sql.ErrNoRows {
@@ -250,6 +354,7 @@ func GetTicketsHandler(c echo.Context) error {
 	query := "SELECT * FROM tickets"
 	rows, err := db.Query(query)
 	if err != nil {
+		// fmt.Println("\n err in GetTicketsHandler1 -- ", GetTicketsHandler)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 	}
 	defer rows.Close()
@@ -267,9 +372,11 @@ func GetTicketsHandler(c echo.Context) error {
 			&ticket.ImageData,
 			&ticket.IsResolved,
 			&ticket.AssignTo,
+			&ticket.DisableComments,
 		)
 
 		if err != nil {
+			// fmt.Println("\n err in GetTicketsHandler -- ", GetTicketsHandler)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch tickets!"})
 		}
 
@@ -313,7 +420,9 @@ func ResolveTicketHandler(c echo.Context) error {
 	}
 }
 func CreateCommentHandler(c echo.Context) error {
+
 	var createCommentRequest CreateCommentRequest
+
 	if err := c.Bind(&createCommentRequest); err != nil {
 		// fmt.Println("Error binding request:", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
@@ -327,10 +436,12 @@ func CreateCommentHandler(c echo.Context) error {
 	if !exists {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Ticket not found"})
 	}
-	_, err = db.Exec(`
+	var commentId int
+	err = db.QueryRow(`
 		INSERT INTO comments (comment, Id, comment_by)
 		VALUES ($1, $2, $3)
-	`, createCommentRequest.Comment, createCommentRequest.TicketId, createCommentRequest.CommentBy)
+		RETURNING commentid
+	`, createCommentRequest.Comment, createCommentRequest.TicketId, createCommentRequest.CommentBy).Scan(&commentId)
 
 	if err != nil {
 		// fmt.Println("Error inserting comment:", err)
@@ -338,8 +449,9 @@ func CreateCommentHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, CreateCommentResponse{
-		Success: true,
-		Message: "Comment created successfully",
+		Success:   true,
+		Message:   "Comment created successfully",
+		CommentId: commentId,
 	})
 }
 
@@ -350,6 +462,77 @@ func isTicketExists(ticketID int) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func getTotalUsersCount() (int, error) {
+	totalUsersCount := 0
+	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE is_admin = false").Scan(&totalUsersCount)
+	if err != nil {
+		return 0, err
+	}
+	return totalUsersCount, nil
+}
+
+func GetUsersHandler(c echo.Context) error {
+	// fmt.Print("i am in users")
+	page, _ := strconv.Atoi(c.Param("page"))
+	limit, _ := strconv.Atoi(c.Param("limit"))
+	if page == 0 {
+		page = 1
+	}
+	if limit == 0 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+	rows, err := db.Query(`
+	SELECT user_email, first_name, last_name, can_edit, can_delete FROM users WHERE is_admin = false limit $1 offset $2
+	`, limit, offset)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+	defer rows.Close()
+	// fmt.Print("i am in users")
+
+	var users []UsersResponse
+	for rows.Next() {
+		var user UsersResponse
+		err := rows.Scan(
+			&user.UserEmail,
+			&user.FirstName,
+			&user.LastName,
+			&user.CanEdit,
+			&user.CanDelete,
+		)
+
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch users!"})
+		}
+		users = append(users, user)
+	}
+	// fmt.Print(users)
+
+	reachedEnd := false
+	reachedStart := true
+	totalUsersCount, err := getTotalUsersCount()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch count of users!"})
+	}
+
+	if page > 1 {
+		reachedStart = false
+	}
+	if totalUsersCount <= offset+limit {
+		reachedEnd = true
+	}
+
+	response := GetUsersResponse{
+		Users:        users,
+		ReachedEnd:   reachedEnd,
+		ReachedStart: reachedStart,
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 func GetAdminsHandler(c echo.Context) error {
@@ -378,23 +561,91 @@ func GetAdminsHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, admins)
 }
 
-func GetCommentsHandler(c echo.Context) error {
-	ticketID, err := strconv.Atoi(c.Param("ticketId"))
+func DisableCommentsHandler(c echo.Context) error {
+
+	userEmail := c.QueryParam("userEmail")
+	ticketIdStr := c.QueryParam("ticketId")
+	disable := c.QueryParam("disable")
+
+	if ticketIdStr == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing or empty ticketId parameter"})
+	}
+
+	ticketId, err := strconv.Atoi(ticketIdStr)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
 	}
+	if ticketId <= 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
+	}
 
-	// fmt.Printf("Ticket ID: %v\n", ticketID)
+	rows, err := db.Query(`select is_admin from users
+	where user_email = $1`, userEmail)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user"})
+	}
+	var isAdmin bool
+	if rows.Next() {
+		err := rows.Scan(&isAdmin)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user"})
+		}
+	}
+	defer rows.Close()
 
+	if !isAdmin {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user: Only Admins can disable comments of a ticket"})
+	}
+	// fmt.Print("\n isAdmin --- ", isAdmin)
+	_, err = db.Exec(`
+		UPDATE tickets
+		SET comments_disable = $1
+		WHERE id = $2
+	`, disable, ticketId)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+
+	return c.JSON(http.StatusOK, CreateCommentResponse{
+		Success: true,
+		Message: "Comments disabled successfully",
+	})
+}
+
+func getTotalCommentCount(ticketID int) (int, error) {
+	totalCount := 0
+	// fmt.Print("\n getTotalCommentCount --", ticketID)
+	err := db.QueryRow("SELECT COUNT(*) FROM comments WHERE id = $1", ticketID).Scan(&totalCount)
+	if err != nil {
+		return 0, err
+	}
+	return totalCount, nil
+}
+
+func GetCommentsHandler(c echo.Context) error {
+	ticketID, err := strconv.Atoi(c.Param("ticketId"))
+	page, _ := strconv.Atoi(c.Param("page"))
+	limit, _ := strconv.Atoi(c.Param("limit"))
+	if page == 0 {
+		page = 1
+	}
+	if limit == 0 {
+		limit = 10
+	}
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
+	}
 	if ticketID <= 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ticket id"})
 	}
 
+	offset := (page - 1) * limit
 	rows, err := db.Query(`
 		SELECT comment, id, comment_by, commentid
 		FROM comments
-		WHERE id = $1
-	`, ticketID)
+		WHERE id = $1 LIMIT $2 OFFSET $3
+	`, ticketID, limit, offset)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
@@ -410,12 +661,123 @@ func GetCommentsHandler(c echo.Context) error {
 		}
 		comments = append(comments, comment)
 	}
-
-	if len(comments) > 0 {
-		return c.JSON(http.StatusOK, comments)
-	} else {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "No comments found for the given ticket."})
+	reachedEnd := false
+	totalCount, err := getTotalCommentCount(ticketID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to fetch total comment count."})
 	}
+
+	if offset+limit >= totalCount {
+		reachedEnd = true
+	}
+	response := GetCommentsResponse{
+		Comments:   comments,
+		ReachedEnd: reachedEnd,
+	}
+	if len(comments) > 0 {
+		return c.JSON(http.StatusOK, response)
+	} else {
+		return c.JSON(http.StatusOK, map[string]string{"error": "No comments found for the given ticket."})
+	}
+}
+
+func DeleteCommentHandler(c echo.Context) error {
+	commentId, err := strconv.Atoi(c.Param("commentId"))
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+	_, err = db.Exec(`
+		DELETE FROM comments
+		WHERE commentid = $1
+	`, commentId)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+
+	return c.JSON(http.StatusOK, CreateCommentResponse{
+		Success:   true,
+		Message:   "Comment deleted successfully",
+		CommentId: commentId,
+	})
+
+}
+
+func EditCommentHandler(c echo.Context) error {
+	var editCommentRequest EditCommentRequest
+
+	if err := c.Bind(&editCommentRequest); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+	}
+
+	_, err := db.Exec(`UPDATE comments SET comment = $1 WHERE commentid=$2 AND comment_by = $3`,
+		editCommentRequest.Comment, editCommentRequest.Commentid, editCommentRequest.UserEmail)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+	return c.JSON(http.StatusOK, CreateCommentResponse{
+		Success:   true,
+		Message:   "Comment edited successfully",
+		CommentId: editCommentRequest.Commentid,
+	})
+}
+
+func DeleteTicketHandler(c echo.Context) error {
+	fmt.Print("\n reached here --- ")
+	deleteTicketId, err := strconv.Atoi(c.Param("ticketId"))
+
+	if err != nil {
+		fmt.Print("\n err --- ", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+
+	_, err = db.Exec(`
+		DELETE FROM comments
+		WHERE id = $1
+	`, deleteTicketId)
+
+	if err != nil {
+		fmt.Print("\n err2 --- ", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete comments of the ticket!"})
+	}
+
+	_, err = db.Exec(`
+		DELETE FROM tickets
+		WHERE id = $1
+	`, deleteTicketId)
+
+	if err != nil {
+		fmt.Print("\n err2 --- ", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete!"})
+	}
+	return c.JSON(http.StatusOK, DeleteTicketResponse{
+		Success:  true,
+		Message:  "Ticket deleted successfully",
+		TicketId: deleteTicketId,
+	})
+}
+
+func UpdateUserCommentsAccessHandler(c echo.Context) error {
+	var updateUserCommentsAccessRequest UpdateUserCommentsAccessRequest
+
+	if err := c.Bind(&updateUserCommentsAccessRequest); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+	}
+	fmt.Println("updateUserCommentsAccessRequest.CanEdit -- ", updateUserCommentsAccessRequest.CanEdit, updateUserCommentsAccessRequest.CanDelete)
+	_, err := db.Exec(`UPDATE users SET can_edit = $1, can_delete = $2 WHERE user_email=$3 AND is_admin = false`,
+		updateUserCommentsAccessRequest.CanEdit, updateUserCommentsAccessRequest.CanDelete, updateUserCommentsAccessRequest.UserEmail)
+
+	if err != nil {
+		fmt.Print("err --- ", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+
+	return c.JSON(http.StatusOK, updateUserCommentsAccessResponse{
+		Success: true,
+		Message: "Comment access updated successfully",
+	})
 }
 
 func main() {
@@ -439,7 +801,14 @@ func main() {
 	e.POST("/create_ticket", CreateTicketHandler)
 	e.PUT("/resolve_ticket/:id", ResolveTicketHandler)
 	e.POST("/create-comment", CreateCommentHandler)
-	e.GET("/get-comments/:ticketId", GetCommentsHandler)
-
+	e.GET("/get-comments/:ticketId/:page/:limit", GetCommentsHandler)
+	e.POST("/sign_up", SignUpHandler)
+	// e.PUT("/disable_comments/:ticketId/:userEmail", DisableCommentsHandler)
+	e.PUT("/disable_comments", DisableCommentsHandler)
+	e.PUT("/delete_comment/:commentId", DeleteCommentHandler)
+	e.POST("/edit_comment", EditCommentHandler)
+	e.GET("/get_users_data/:page/:limit", GetUsersHandler)
+	e.PUT("/edit_user_comments_access", UpdateUserCommentsAccessHandler)
+	e.POST("/delete_ticket/:ticketId", DeleteTicketHandler)
 	e.Logger.Fatal(e.Start(":8080"))
 }

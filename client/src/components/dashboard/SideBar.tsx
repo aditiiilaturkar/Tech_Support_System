@@ -1,20 +1,29 @@
 import { useState } from "react";
 import { logout } from "../../actions";
 import {logo, Search, User, Setting}  from '../../images';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
 const SideBar = () => {
   const [open, setOpen] = useState(true);
   const dispatch = useDispatch();
   const navigate = useNavigate();  
-
+  const {firstName} = useSelector((state: any) => state.auth);
+  const { isAdmin } = useSelector((state:any)=> state.auth);
   const Menus = [
-    { title: "Accounts", src: "User", gap: false, img: User },
+    { title: "Accounts", src: "User", gap: false, img: User, onclick: () => {
+      if(isAdmin) {
+        navigate('/manageAccounts');
+      }
+    } },
     { title: "Dashboard", src: "Chart_fill", img:User, onclick: () => {
       navigate('/dashboardLayout');
     } },
-    { title: "Search", src: "Search" , img: Search},
+    { title: "Search", src: "Search" , img: Search, onclick: () => {
+      if(isAdmin) {
+        navigate('/displayAnalytics');
+      }
+    }},
     { title: "Logout", src: "Setting" , img: Setting, onclick: () => {
       dispatch(logout());
       localStorage.removeItem('loginState');
@@ -24,6 +33,7 @@ const SideBar = () => {
 
   return (
     <div className="flex bg-black ">
+
       <div
         className={` ${
           open ? "w-62" : "w-20"
@@ -49,6 +59,9 @@ const SideBar = () => {
             }`}
           >
           </h1>
+        </div>
+        <div className="my-1">
+          <p className="text-white">Welcome {firstName}</p>
         </div>
         <ul className="pt-6">
           {Menus.map((Menu, index) => (

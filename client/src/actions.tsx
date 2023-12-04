@@ -16,12 +16,14 @@ export interface TicketData {
   created_on: string;
   status: string;
   description: string;
+  resolved_on?: string;
   assign_to: string;
+  disable_comments: boolean;
 }
 export interface TicketState {
   alltickets: TicketData[] | undefined;
 }
-const initialTicketState: TicketState = {
+export const initialTicketState: TicketState = {
   alltickets: undefined,
 };
 const initialState: AuthState = {
